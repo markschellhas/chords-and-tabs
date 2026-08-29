@@ -34,6 +34,53 @@ void MoreButton::paintButton(juce::Graphics& g, bool highlighted, bool down)
         g.fillEllipse(cx + static_cast<float>(i) * 4.4f - 1.5f, cy - 1.5f, 3.0f, 3.0f);
 }
 
+RepeatSignButton::RepeatSignButton()
+    : juce::Button("repeat")
+{
+    setClickingTogglesState(true);
+    setTooltip("Repeat this row once");
+}
+
+void RepeatSignButton::paintButton(juce::Graphics& g, bool highlighted, bool down)
+{
+    auto* look = dynamic_cast<AppLookAndFeel*>(&getLookAndFeel());
+    const auto muted = look != nullptr ? look->muted() : juce::Colour(0xff8a8694);
+    const auto play = look != nullptr ? look->play() : juce::Colour(0xff6fbf9a);
+    const auto ink = look != nullptr ? look->text() : juce::Colour(0xffe8e4da);
+    const bool on = getToggleState();
+
+    auto bounds = getLocalBounds().toFloat().reduced(1.0f);
+    if (highlighted || down || on)
+    {
+        auto bg = on ? play.withAlpha(0.22f) : muted.withAlpha(0.12f);
+        if (down)
+            bg = bg.brighter(0.12f);
+        g.setColour(bg);
+        g.fillRoundedRectangle(bounds, 5.0f);
+    }
+
+    auto colour = on ? play : muted;
+    if (highlighted && ! on)
+        colour = ink.withAlpha(0.75f);
+    else if (highlighted)
+        colour = play.brighter(0.12f);
+
+    const float cx = bounds.getCentreX();
+    const float cy = bounds.getCentreY();
+    const float h = bounds.getHeight() * 0.62f;
+    const float top = cy - h * 0.5f;
+
+    const float dotR = 2.15f;
+    const float dotsX = cx - 6.2f;
+    g.setColour(colour);
+    g.fillEllipse(dotsX - dotR, cy - 7.4f - dotR, dotR * 2.0f, dotR * 2.0f);
+    g.fillEllipse(dotsX - dotR, cy + 7.4f - dotR, dotR * 2.0f, dotR * 2.0f);
+
+    const float thinX = cx + 0.4f;
+    g.fillRect(thinX, top, 1.6f, h);
+    g.fillRoundedRectangle(thinX + 3.6f, top, 3.6f, h, 0.8f);
+}
+
 SectionComponent::SectionComponent(Song& song, int sectionIndex)
     : song_(song), sectionIndex_(sectionIndex)
 {
@@ -119,6 +166,7 @@ void SectionComponent::startRename()
 void SectionComponent::rebuild()
 {
     measures_.clear();
+    repeats_.clear();
     if (sectionIndex_ < 0 || sectionIndex_ >= static_cast<int>(song_.sections().size()))
         return;
 
@@ -140,6 +188,18 @@ void SectionComponent::rebuild()
         measures_.push_back(std::move(m));
     }
 
+    const int rows = rowCount();
+    for (int row = 0; row < rows; ++row)
+    {
+        auto sign = std::make_unique<RepeatSignButton>();
+        sign->setToggleState(song_.rowRepeats(sectionIndex_, row), juce::dontSendNotification);
+        sign->onClick = [this, row] {
+            song_.setRowRepeat(sectionIndex_, row, repeats_[static_cast<size_t>(row)]->getToggleState());
+        };
+        addAndMakeVisible(*sign);
+        repeats_.push_back(std::move(sign));
+    }
+
     setPlayhead(playingMeasure_, playingSlot_, playProgress_);
     resized();
 }
@@ -155,56 +215,52 @@ void SectionComponent::setPlayhead(int measure, int slot, float progress)
             i == measure ? playProgress_ : 0.0f);
 }
 
+int SectionComponent::rowCount() const
+{
+    return Song::rowCount(static_cast<int>(measures_.size()));
+}
+
 int SectionComponent::measureWidth(int areaWidth) const
 {
-    const int n = juce::jmax(1, static_cast<int>(measures_.size()));
-    const int gaps = kGap * (n - 1);
-    return juce::jmax(56, (areaWidth - gaps) / n);
+    const int barArea = juce::jmax(80, areaWidth - kRepeatW - kGap);
+    const int gaps = kGap * (Song::kBarsPerRow - 1);
+    return juce::jmax(56, (barArea - gaps) / Song::kBarsPerRow);
 }
 
 int SectionComponent::preferredHeight(int width) const
 {
-    const int usable = juce::jmax(120, width - 16);
-    const int n = static_cast<int>(measures_.size());
-    if (n <= 0)
-        return kHeaderH + kChordH + 12;
-
-    const int boxW = measureWidth(usable);
-    int x = 0;
-    int rows = 1;
-    for (int i = 0; i < n; ++i)
-    {
-        if (x > 0 && x + boxW > usable)
-        {
-            ++rows;
-            x = 0;
-        }
-        x += boxW + kGap;
-    }
+    juce::ignoreUnused(width);
+    const int rows = juce::jmax(1, rowCount());
     return kHeaderH + 4 + rows * (kChordH + 4) + 4;
 }
 
-void SectionComponent::layoutMeasures(juce::Rectangle<int> area, bool apply) const
+void SectionComponent::layoutRow(juce::Rectangle<int> area)
 {
     const int n = static_cast<int>(measures_.size());
     if (n <= 0)
         return;
 
     const int boxW = measureWidth(area.getWidth());
-    int x = area.getX();
-    int y = area.getY();
-    const int right = area.getRight();
+    const int rows = rowCount();
 
-    for (auto& m : measures_)
+    for (int row = 0; row < rows; ++row)
     {
-        if (x > area.getX() && x + boxW > right)
+        const int start = row * Song::kBarsPerRow;
+        const int end = juce::jmin(start + Song::kBarsPerRow, n);
+        const int y = area.getY() + row * (kChordH + 4);
+        int x = area.getX();
+
+        for (int i = start; i < end; ++i)
         {
-            x = area.getX();
-            y += kChordH + 4;
+            measures_[static_cast<size_t>(i)]->setBounds(x, y, boxW, kChordH);
+            x += boxW + kGap;
         }
-        if (apply)
-            m->setBounds(x, y, boxW, kChordH);
-        x += boxW + kGap;
+
+        if (row < static_cast<int>(repeats_.size()))
+        {
+            const int signX = area.getRight() - kRepeatW;
+            repeats_[static_cast<size_t>(row)]->setBounds(signX, y, kRepeatW, kChordH);
+        }
     }
 }
 
@@ -226,7 +282,7 @@ void SectionComponent::resized()
     name_.setBounds(header);
 
     r.removeFromTop(2);
-    layoutMeasures(r, true);
+    layoutRow(r);
 }
 
 } // namespace chords

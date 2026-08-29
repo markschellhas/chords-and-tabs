@@ -28,6 +28,7 @@ That is the contract. Do not infer the song from source defaults or the starter 
     {
       "name": "Verse",
       "timeSignature": "4/4",
+      "rowRepeats": [false],
       "progression": "C | G F C | Dm",
       "chords": [
         { "name": "C", "root": "C", "rootPc": 0, "quality": "major", "bar": 0, "slot": 0, "numeral": "I" }

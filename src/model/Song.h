@@ -26,6 +26,8 @@ struct Section
     std::string name = "Verse";
     TimeSignature timeSig {};
     std::vector<Measure> measures;
+    /** One flag per 4-bar row; when set that row plays twice. */
+    std::vector<char> rowRepeats;
 };
 
 class Song
@@ -48,6 +50,14 @@ public:
 
     /** Number of bars a section should have for this time signature (4/4 → 4). */
     static int barsForTimeSignature(TimeSignature ts);
+
+    static constexpr int kBarsPerRow = 4;
+    static int rowCount(int measureCount);
+    static int rowIndexForMeasure(int measureIndex);
+
+    void setRowRepeat(int sectionIndex, int rowIndex, bool shouldRepeat);
+    bool rowRepeats(int sectionIndex, int rowIndex) const;
+    void toggleRowRepeat(int sectionIndex, int rowIndex);
 
     void addMeasure(int sectionIndex);
     void removeMeasure(int sectionIndex, int measureIndex);
@@ -85,6 +95,7 @@ private:
     bool valid(int sectionIndex, int measureIndex, int slotIndex) const;
     static Section makeSection(std::string name, TimeSignature ts = {});
     static void syncMeasuresToTimeSignature(Section& section);
+    static void syncRowRepeats(Section& section);
     static void normalizeMeasure(Measure& measure, int capacity);
 
     double bpm_ = 120.0;
