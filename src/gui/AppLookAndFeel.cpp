@@ -103,6 +103,15 @@ void AppLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& but
     g.drawText(button.getButtonText(), bounds, juce::Justification::centred);
 }
 
+void AppLookAndFeel::drawNavFocusFrame(juce::Graphics& g, juce::Rectangle<float> bounds) const
+{
+    bounds = bounds.reduced(1.5f);
+    g.setColour(accent_.withAlpha(0.22f));
+    g.drawRoundedRectangle(bounds.expanded(1.0f), 10.0f, 4.0f);
+    g.setColour(accent_);
+    g.drawRoundedRectangle(bounds, 8.0f, 2.0f);
+}
+
 void AppLookAndFeel::drawChordChip(juce::Graphics& g, juce::Rectangle<float> bounds,
                                    const juce::String& name,
                                    bool filled, bool playing, bool dropHover,
