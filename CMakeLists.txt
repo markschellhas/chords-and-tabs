@@ -136,6 +136,10 @@ if(CHORDS_BUILD_TESTS)
     add_executable(AgentApiTest tests/AgentApiTest.cpp)
     target_link_libraries(AgentApiTest PRIVATE chords_core)
     add_test(NAME AgentApiTest COMMAND AgentApiTest)
+
+    add_executable(InstrumentsTest tests/InstrumentsTest.cpp)
+    target_link_libraries(InstrumentsTest PRIVATE chords_core)
+    add_test(NAME InstrumentsTest COMMAND InstrumentsTest)
 endif()
 
 if(APPLE)
