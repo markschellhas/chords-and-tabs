@@ -45,6 +45,9 @@ public:
     void setSectionName(int index, std::string name);
     void setTimeSignature(int index, TimeSignature ts);
 
+    /** Number of bars a section should have for this time signature (4/4 → 4). */
+    static int barsForTimeSignature(TimeSignature ts);
+
     void addMeasure(int sectionIndex);
     void removeMeasure(int sectionIndex, int measureIndex);
 
@@ -63,7 +66,8 @@ private:
     bool valid(int sectionIndex) const;
     bool valid(int sectionIndex, int measureIndex) const;
     bool valid(int sectionIndex, int measureIndex, int slotIndex) const;
-    static Section makeSection(std::string name, int measures);
+    static Section makeSection(std::string name, TimeSignature ts = {});
+    static void syncMeasuresToTimeSignature(Section& section);
 
     double bpm_ = 120.0;
     std::vector<Section> sections_;

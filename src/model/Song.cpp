@@ -6,17 +6,24 @@
 namespace chords
 {
 
-namespace
+int Song::barsForTimeSignature(TimeSignature ts)
 {
-constexpr int kDefaultMeasures = 4;
+    return std::max(1, ts.numerator);
 }
 
-Section Song::makeSection(std::string name, int measures)
+void Song::syncMeasuresToTimeSignature(Section& section)
+{
+    const auto n = static_cast<size_t>(barsForTimeSignature(section.timeSig));
+    if (section.measures.size() != n)
+        section.measures.resize(n);
+}
+
+Section Song::makeSection(std::string name, TimeSignature ts)
 {
     Section s;
     s.name = std::move(name);
-    s.timeSig = { 4, 4 };
-    s.measures.resize(static_cast<size_t>(std::max(1, measures)));
+    s.timeSig = ts.numerator > 0 ? ts : TimeSignature { 4, 4 };
+    syncMeasuresToTimeSignature(s);
     return s;
 }
 
@@ -29,18 +36,15 @@ void Song::resetToDefault()
 {
     bpm_ = 120.0;
     sections_.clear();
-    sections_.push_back(makeSection("Verse", 3));
-    sections_.push_back(makeSection("Chorus", 4));
+    sections_.push_back(makeSection("Verse"));
+    sections_.push_back(makeSection("Chorus"));
 
-    // Starter progression matching the design sketch (key of C).
+    // Starter 4-bar phrases in C (4/4 → four bars, one chord each).
     auto& verse = sections_[0];
-    verse.measures[0].slots[0].chord = CircleOfFifths::majorChord(0); // C
-    verse.measures[1].slots = {
-        ChordSlot { CircleOfFifths::majorChord(1) },  // G
-        ChordSlot { CircleOfFifths::majorChord(11) }, // F
-        ChordSlot { CircleOfFifths::majorChord(0) }   // C
-    };
-    verse.measures[2].slots[0].chord = CircleOfFifths::minorChord(11); // Dm
+    verse.measures[0].slots[0].chord = CircleOfFifths::majorChord(0);  // C
+    verse.measures[1].slots[0].chord = CircleOfFifths::majorChord(1);  // G
+    verse.measures[2].slots[0].chord = CircleOfFifths::majorChord(11); // F
+    verse.measures[3].slots[0].chord = CircleOfFifths::minorChord(11); // Dm
 
     auto& chorus = sections_[1];
     chorus.measures[0].slots[0].chord = CircleOfFifths::majorChord(2); // D
@@ -60,7 +64,7 @@ void Song::addSection(std::string name)
 {
     if (name.empty())
         name = "Section";
-    sections_.push_back(makeSection(std::move(name), kDefaultMeasures));
+    sections_.push_back(makeSection(std::move(name)));
     notify();
 }
 
@@ -90,7 +94,9 @@ void Song::setTimeSignature(int index, TimeSignature ts)
         ts.numerator = 4;
     if (ts.denominator != 2 && ts.denominator != 4 && ts.denominator != 8)
         ts.denominator = 4;
-    sections_[static_cast<size_t>(index)].timeSig = ts;
+    auto& section = sections_[static_cast<size_t>(index)];
+    section.timeSig = ts;
+    syncMeasuresToTimeSignature(section);
     notify();
 }
 

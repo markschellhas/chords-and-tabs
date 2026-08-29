@@ -1,4 +1,5 @@
 #include "gui/SectionListComponent.h"
+#include "gui/AppLookAndFeel.h"
 
 namespace chords
 {
@@ -10,6 +11,8 @@ SectionListComponent::SectionListComponent(Song& song)
     viewport_.setScrollBarsShown(true, false);
     addAndMakeVisible(viewport_);
 
+    addSection_.setComponentID("link");
+    addSection_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xff7eb6e8));
     addSection_.onClick = [this] {
         juce::PopupMenu menu;
         menu.addItem(1, "Verse");
@@ -90,6 +93,12 @@ void SectionListComponent::setPlayhead(int section, int measure, int slot, bool 
             playing && i == section ? slot : -1);
 }
 
+void SectionListComponent::lookAndFeelChanged()
+{
+    if (auto* look = dynamic_cast<AppLookAndFeel*>(&getLookAndFeel()))
+        addSection_.setColour(juce::TextButton::textColourOffId, look->accent());
+}
+
 void SectionListComponent::paint(juce::Graphics& g)
 {
     auto* look = dynamic_cast<AppLookAndFeel*>(&getLookAndFeel());
@@ -107,7 +116,7 @@ void SectionListComponent::resized()
         s->setBounds(4, y, width - 8, h);
         y += h + 6;
     }
-    addSection_.setBounds(4, y, 140, 28);
+    addSection_.setBounds(4, y, 168, 28);
     y += 36;
     content_.setSize(width, juce::jmax(y, viewport_.getHeight()));
 }

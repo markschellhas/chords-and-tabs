@@ -18,10 +18,9 @@ public:
 
     void setPlayingSlot(int slotIndex);
     void rebuild();
-    int preferredWidth() const;
-    static constexpr int kHeight = 64;
+    static constexpr int kHeight = 52;
 
-    void paint(juce::Graphics& g) override;
+    void paint(juce::Graphics&) override {}
     void resized() override;
 
     std::function<void(int slot)> onSlotSelected;
@@ -32,8 +31,6 @@ private:
     int measure_ = 0;
     int playingSlot_ = -1;
     std::vector<std::unique_ptr<ChordSlotComponent>> slots_;
-    juce::TextButton addSlot_ { "+" };
-    juce::TextButton remove_ { "–" };
 };
 
 } // namespace chords
