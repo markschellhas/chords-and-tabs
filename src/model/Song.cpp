@@ -109,6 +109,27 @@ int Song::barsForTimeSignature(TimeSignature ts)
     return std::max(1, ts.numerator);
 }
 
+int Song::rowCount(int measureCount)
+{
+    if (measureCount <= 0)
+        return 0;
+    return (measureCount + kBarsPerRow - 1) / kBarsPerRow;
+}
+
+int Song::rowIndexForMeasure(int measureIndex)
+{
+    if (measureIndex < 0)
+        return 0;
+    return measureIndex / kBarsPerRow;
+}
+
+void Song::syncRowRepeats(Section& section)
+{
+    const auto rows = static_cast<size_t>(rowCount(static_cast<int>(section.measures.size())));
+    if (section.rowRepeats.size() != rows)
+        section.rowRepeats.resize(rows, 0);
+}
+
 void Song::syncMeasuresToTimeSignature(Section& section)
 {
     const auto n = static_cast<size_t>(barsForTimeSignature(section.timeSig));
@@ -118,6 +139,8 @@ void Song::syncMeasuresToTimeSignature(Section& section)
     const int cap = section.timeSig.maxSlots();
     for (auto& measure : section.measures)
         normalizeMeasure(measure, cap);
+
+    syncRowRepeats(section);
 }
 
 void Song::normalizeMeasure(Measure& measure, int capacity)
@@ -268,13 +291,44 @@ void Song::setTimeSignature(int index, TimeSignature ts)
     notify();
 }
 
+void Song::setRowRepeat(int sectionIndex, int rowIndex, bool shouldRepeat)
+{
+    if (! valid(sectionIndex))
+        return;
+    auto& section = sections_[static_cast<size_t>(sectionIndex)];
+    syncRowRepeats(section);
+    if (rowIndex < 0 || rowIndex >= static_cast<int>(section.rowRepeats.size()))
+        return;
+    const char value = shouldRepeat ? 1 : 0;
+    if (section.rowRepeats[static_cast<size_t>(rowIndex)] == value)
+        return;
+    section.rowRepeats[static_cast<size_t>(rowIndex)] = value;
+    notify();
+}
+
+bool Song::rowRepeats(int sectionIndex, int rowIndex) const
+{
+    if (! valid(sectionIndex))
+        return false;
+    const auto& repeats = sections_[static_cast<size_t>(sectionIndex)].rowRepeats;
+    if (rowIndex < 0 || rowIndex >= static_cast<int>(repeats.size()))
+        return false;
+    return repeats[static_cast<size_t>(rowIndex)] != 0;
+}
+
+void Song::toggleRowRepeat(int sectionIndex, int rowIndex)
+{
+    setRowRepeat(sectionIndex, rowIndex, ! rowRepeats(sectionIndex, rowIndex));
+}
+
 void Song::addMeasure(int sectionIndex)
 {
     if (! valid(sectionIndex))
         return;
-    auto& measures = sections_[static_cast<size_t>(sectionIndex)].measures;
-    measures.push_back({});
-    normalizeMeasure(measures.back(), maxSlots(sectionIndex));
+    auto& section = sections_[static_cast<size_t>(sectionIndex)];
+    section.measures.push_back({});
+    normalizeMeasure(section.measures.back(), maxSlots(sectionIndex));
+    syncRowRepeats(section);
     notify();
 }
 
@@ -282,10 +336,11 @@ void Song::removeMeasure(int sectionIndex, int measureIndex)
 {
     if (! valid(sectionIndex, measureIndex))
         return;
-    auto& measures = sections_[static_cast<size_t>(sectionIndex)].measures;
-    if (measures.size() <= 1)
+    auto& section = sections_[static_cast<size_t>(sectionIndex)];
+    if (section.measures.size() <= 1)
         return;
-    measures.erase(measures.begin() + measureIndex);
+    section.measures.erase(section.measures.begin() + measureIndex);
+    syncRowRepeats(section);
     notify();
 }
 

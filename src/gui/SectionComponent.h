@@ -19,6 +19,14 @@ public:
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
 };
 
+class RepeatSignButton : public juce::Button
+{
+public:
+    RepeatSignButton();
+
+    void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
+};
+
 class SectionComponent : public juce::Component
 {
 public:
@@ -30,6 +38,7 @@ public:
     static constexpr int kHeaderH = 36;
     static constexpr int kChordH = MeasureComponent::kHeight;
     static constexpr int kGap = 6;
+    static constexpr int kRepeatW = 30;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -42,8 +51,9 @@ private:
     void showEditMenu();
     void applyTimeSignature(int menuId);
     void startRename();
-    void layoutMeasures(juce::Rectangle<int> area, bool apply) const;
+    void layoutRow(juce::Rectangle<int> area);
     int measureWidth(int areaWidth) const;
+    int rowCount() const;
 
     Song& song_;
     int sectionIndex_ = 0;
@@ -54,6 +64,7 @@ private:
     juce::Label name_;
     juce::TextButton edit_ { "Edit" };
     std::vector<std::unique_ptr<MeasureComponent>> measures_;
+    std::vector<std::unique_ptr<RepeatSignButton>> repeats_;
 };
 
 } // namespace chords

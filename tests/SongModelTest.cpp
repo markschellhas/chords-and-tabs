@@ -73,6 +73,40 @@ int main()
 
     s2.setTimeSignature(0, { 4, 4 });
     if (s2.sections()[0].measures.size() != 4) fail("4/4 resizes to 4 bars");
+    if (s2.sections()[0].rowRepeats.size() != 1) fail("4/4 keeps one repeat flag");
+
+    if (Song::rowCount(4) != 1) fail("4 bars is one row");
+    if (Song::rowCount(6) != 2) fail("6 bars is two rows");
+    if (Song::rowIndexForMeasure(3) != 0) fail("bar 3 is row 0");
+    if (Song::rowIndexForMeasure(4) != 1) fail("bar 4 is row 1");
+    if (s2.rowRepeats(0, 0)) fail("repeat off by default");
+    s2.setRowRepeat(0, 0, true);
+    if (! s2.rowRepeats(0, 0)) fail("repeat on");
+    const auto tlRepeat = buildTimeline(s2);
+    // verse played twice (8 events) + chorus (4) = 12
+    if (tlRepeat.size() != 12) fail("repeat doubles the verse row");
+    if (std::abs(timelineLengthBeats(tlRepeat) - 48.0) > 1.0e-9) fail("repeat length 48");
+    if (tlRepeat[0].chord.name() != "C" || tlRepeat[4].chord.name() != "C")
+        fail("verse starts again after the sign");
+    if (tlRepeat[3].repeatPass != 0 || tlRepeat[4].repeatPass != 1)
+        fail("repeat pass marks the second time through");
+    if (tlRepeat[8].chord.name() != "D") fail("chorus follows the repeated verse");
+    s2.toggleRowRepeat(0, 0);
+    if (s2.rowRepeats(0, 0)) fail("toggle off");
+    if (buildTimeline(s2).size() != 8) fail("off restores 8 events");
+
+    Song sRows;
+    sRows.setTimeSignature(0, { 6, 8 });
+    if (Song::rowCount(static_cast<int>(sRows.sections()[0].measures.size())) != 2)
+        fail("6/8 has two rows");
+    if (sRows.sections()[0].rowRepeats.size() != 2) fail("6/8 syncs two repeat flags");
+    sRows.setRowRepeat(0, 0, true);
+    // verse: row0 4 bars * 2 + row1 2 bars = 10 * 3 beats; chorus 4 * 4 = 16 → 46
+    if (std::abs(timelineLengthBeats(buildTimeline(sRows)) - 46.0) > 1.0e-9)
+        fail("first 6/8 row repeats only");
+    sRows.setRowRepeat(0, 1, true);
+    if (std::abs(timelineLengthBeats(buildTimeline(sRows)) - 52.0) > 1.0e-9)
+        fail("both 6/8 rows repeat");
 
     Song s3;
     if (s3.slotSpan(0, 0, 0) != 4) fail("full bar span 4");

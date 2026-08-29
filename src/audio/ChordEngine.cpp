@@ -298,14 +298,15 @@ void ChordEngine::applyEvent(const PlayEvent* event, juce::MidiBuffer& midi, int
         {
             allNotesOff(midi, sampleOffset);
             lastRest_ = true;
-            lastSection_ = lastMeasure_ = lastSlot_ = -1;
+            lastSection_ = lastMeasure_ = lastSlot_ = lastRepeatPass_ = -1;
         }
         return;
     }
 
     const bool same = event->sectionIndex == lastSection_
                    && event->measureIndex == lastMeasure_
-                   && event->slotIndex == lastSlot_;
+                   && event->slotIndex == lastSlot_
+                   && event->repeatPass == lastRepeatPass_;
     if (same)
         return;
 
@@ -313,6 +314,7 @@ void ChordEngine::applyEvent(const PlayEvent* event, juce::MidiBuffer& midi, int
     lastSection_ = event->sectionIndex;
     lastMeasure_ = event->measureIndex;
     lastSlot_ = event->slotIndex;
+    lastRepeatPass_ = event->repeatPass;
     lastRest_ = event->rest;
 
     if (! event->rest)
