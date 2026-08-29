@@ -1,0 +1,22 @@
+feature_name: row_repeats
+purpose: "Toggle a :|| at the end of each 4-bar row so that row plays twice."
+
+entry_points:
+  - src/gui/SectionComponent.cpp
+  - src/model/Song.h
+
+apps:
+  - chords_and_tabs
+
+user_flow:
+  primary: "User → click RepeatSignButton → setRowRepeat; buildTimeline emits the row with repeatPass=1"
+
+related_features:
+  - song_structure (Section.rowRepeats, kBarsPerRow)
+  - playback (timeline duplicates the row)
+  - agent_api (rowRepeats in JSON)
+
+core_components:
+  - src/gui/SectionComponent.h
+  - src/model/Timeline.cpp
+  - tests/SongModelTest.cpp

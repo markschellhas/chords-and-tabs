@@ -1,0 +1,9 @@
+# Feature Map CLI configuration
+features_dir: .features
+apps:
+  - chords_and_tabs
+  - chords-agent
+required_sections:
+  - purpose
+  - entry_points
+min_cli_version: "1.0.0"

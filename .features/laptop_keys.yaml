@@ -1,0 +1,23 @@
+feature_name: laptop_keys
+purpose: "Optional QWERTY map (A=C …; Z/X octave) that plays live notes and steals H/J/K/L from vim nav."
+
+entry_points:
+  - src/theory/LaptopKeys.h
+  - src/gui/PianoKeyboard.cpp
+  - src/MainComponent.cpp
+
+apps:
+  - chords_and_tabs
+
+user_flow:
+  primary: "User → KeyboardToggle on → handleComputerKeyPress maps A/W/S… to MIDI"
+  octave: "User → Z/X → shiftOctave (0–8)"
+  alt: "Mapping off → j/k/h/l remain region nav"
+
+related_features:
+  - piano_keyboard (toggle and key state)
+  - playback (noteOn/noteOff live channel)
+  - region_focus (mapping takes over H/J/K/L)
+
+core_components:
+  - tests/LaptopKeysTest.cpp

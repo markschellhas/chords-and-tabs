@@ -1,0 +1,24 @@
+feature_name: region_focus
+purpose: "j/k cycle focus among circle, song structure, and keyboard; h/l then rotate key or cycle sound."
+
+entry_points:
+  - src/nav/RegionFocus.h
+  - src/MainComponent.cpp
+
+apps:
+  - chords_and_tabs
+
+user_flow:
+  primary: "User → j/k → cycleNavRegion; focus frame and hint text update"
+  hl: "User → h/l → Circle rotates key; Keyboard cycles instrument; Song ignores"
+
+related_features:
+  - circle_of_fifths (rotate)
+  - instruments (cycleSound)
+  - laptop_keys (steals hjkl when on)
+  - song_structure (Song region)
+  - piano_keyboard (Keyboard region)
+
+core_components:
+  - tests/RegionFocusTest.cpp
+  - src/gui/AppLookAndFeel.cpp

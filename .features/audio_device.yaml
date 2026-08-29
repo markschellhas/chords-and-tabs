@@ -1,0 +1,20 @@
+feature_name: audio_device
+purpose: "Pick JACK (PipeWire) or ALSA output and persist the JUCE device graph."
+
+entry_points:
+  - src/gui/TransportStrip.cpp
+  - src/MainComponent.cpp
+
+apps:
+  - chords_and_tabs
+
+user_flow:
+  primary: "User → Device → AudioDeviceSelectorComponent → device.xml under userApplicationDataDirectory/chords-and-tabs"
+
+related_features:
+  - playback (deviceManager callback is ChordEngine)
+  - instruments (prefs.xml in the same directory)
+
+core_components:
+  - src/main.cpp
+  - CMakeLists.txt

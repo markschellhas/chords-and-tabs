@@ -1,0 +1,30 @@
+feature_name: song_structure
+purpose: "Hold Verse/Chorus (and extra) sections whose bar count follows time signature; add, rename, or delete them."
+
+entry_points:
+  - src/gui/SectionListComponent.cpp
+  - src/gui/SectionComponent.cpp
+  - src/model/Song.h
+
+apps:
+  - chords_and_tabs
+
+user_flow:
+  primary: "User → + Append Section → Verse/Chorus/…/Custom → Song.addSection with barsForTimeSignature bars"
+  edit: "User → Edit → 4/4, 3/4, 2/4, or 6/8 → setTimeSignature resizes measures"
+  rename: "User → double-click title, More → Rename, or Edit → Rename → setSectionName"
+  error: "User → Delete last section → ignored (cannot delete last)"
+
+related_features:
+  - chord_slots (measures contain slots)
+  - row_repeats (one flag per 4-bar row)
+  - playback (timeline walks sections)
+  - agent_api (sections in JSON)
+  - music_theory (TimeSignature)
+  - region_focus (Song region)
+
+core_components:
+  - src/model/Song.cpp
+  - src/gui/SectionListComponent.h
+  - src/gui/SectionComponent.h
+  - tests/SongModelTest.cpp

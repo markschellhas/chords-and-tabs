@@ -1,0 +1,30 @@
+feature_name: playback
+purpose: "Play, stop, and loop the song at BPM; audition a slot; drive playhead and sounding-note highlight."
+
+entry_points:
+  - src/gui/TransportStrip.cpp
+  - src/audio/ChordEngine.cpp
+  - src/MainComponent.cpp
+
+apps:
+  - chords_and_tabs
+
+user_flow:
+  primary: "User → Play or Space → ChordEngine.play walks buildTimeline events"
+  loop: "User → Loop toggle → setLooping wraps currentBeat"
+  bpm: "User → BPM slider 40–240 → Song.setBpm and engine.setBpm"
+  audition: "User → click filled slot → playChord for slotDurationBeats, then cancel"
+
+related_features:
+  - song_structure (Song as source)
+  - chord_slots (slot duration, audition)
+  - row_repeats (timeline repeatPass)
+  - piano_keyboard (soundingNotes highlight)
+  - instruments (synth timbre)
+  - audio_device (AudioIODeviceCallback)
+
+core_components:
+  - src/gui/TransportStrip.h
+  - src/audio/ChordEngine.h
+  - src/model/Timeline.h
+  - src/model/Timeline.cpp

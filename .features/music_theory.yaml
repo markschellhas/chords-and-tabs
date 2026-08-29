@@ -1,0 +1,24 @@
+feature_name: music_theory
+purpose: "Name triads, diatonic sets, time signatures, and chord drag payloads for the rest of the app."
+
+entry_points:
+  - src/theory/MusicTheory.h
+  - src/theory/MusicTheory.cpp
+
+apps:
+  - chords_and_tabs
+  - chords-agent
+
+user_flow:
+  primary: "Caller → CircleOfFifths::diatonicTriads(index) → seven triads sharing the relative-minor set"
+  payload: "GUI → encodeChord / decodeChord → chord|<name>|<rootPc>|<qualityInt>"
+
+related_features:
+  - circle_of_fifths (12 stations, chips)
+  - chord_slots (payload decode, Chord on Song)
+  - song_structure (TimeSignature.maxSlots)
+  - agent_api (roman numerals when diatonic)
+  - playback (midiNotes for synth)
+
+core_components:
+  - tests/MusicTheoryTest.cpp

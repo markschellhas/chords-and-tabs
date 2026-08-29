@@ -1,0 +1,23 @@
+feature_name: piano_keyboard
+purpose: "Show a C3–C5 piano; click keys to play notes; light triad notes from play, preview, or selection."
+
+entry_points:
+  - src/gui/PianoKeyboard.cpp
+  - src/MainComponent.cpp
+
+apps:
+  - chords_and_tabs
+
+user_flow:
+  primary: "User → mouse down on key → onNoteOn midi → ChordEngine.noteOn"
+  highlight: "Timer → soundingNotes or selected/preview triad → setHighlightedNotes"
+
+related_features:
+  - playback (sounding notes, live notes)
+  - instruments (SoundPicker chevrons)
+  - laptop_keys (computer-keyboard toggle)
+  - circle_of_fifths (preview highlight)
+  - region_focus (Keyboard region)
+
+core_components:
+  - src/gui/PianoKeyboard.h

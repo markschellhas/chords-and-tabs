@@ -1,0 +1,23 @@
+feature_name: instruments
+purpose: "Cycle synth timbre among Piano, Electric Piano, Organ, Pad, and Strings."
+
+entry_points:
+  - src/audio/Instruments.h
+  - src/gui/PianoKeyboard.cpp
+  - src/MainComponent.cpp
+
+apps:
+  - chords_and_tabs
+
+user_flow:
+  primary: "User → SoundPicker chevrons or h/l in Keyboard region → cycleInstrument; persist prefs.xml"
+
+related_features:
+  - piano_keyboard (SoundPicker UI)
+  - playback (ChordEngine.setInstrument / timbreFor)
+  - region_focus (h/l when Keyboard focused)
+  - audio_device (same app-data directory)
+
+core_components:
+  - src/audio/ChordEngine.cpp
+  - tests/InstrumentsTest.cpp
