@@ -9,6 +9,7 @@ A JUCE song-builder: pick a key on the circle of fifths, drag diatonic (and neig
 - Circle of fifths at the top; the active wedge sits at 12 o'clock
 - **Left / Right** (or mouse wheel) rotate the circle through keys
 - Drag a wedge or an “in this key” chip into a bar under a section
+- Drop onto a filled chord to halve it and open a slot for the new chord; drag a chord’s left or right edge to shrink it and pop empty slots (4/4 bars hold at most four slots)
 - Add / rename / delete sections; bar count follows the time signature (4/4 → 4 bars)
 - Default song: Verse + Chorus, **4/4**, **120 BPM**
 - Play the song; triad notes highlight on the keyboard
@@ -48,7 +49,7 @@ On first launch, **Device** → pick **JACK** (PipeWire) or **ALSA**.
 | Space | Play / stop |
 | Double-click section title | Rename |
 
-Drag from the circle or the roman-numeral chips onto a bar. Hover the × on a filled chip to clear it. **Edit** on a section changes its time signature (and bar count) or renames it. **+ Append Section** adds another section.
+Drag from the circle or the roman-numeral chips onto a bar. Dropping onto a chord already in the bar shortens that chord by half and places the new one in the opened slot. Drag a filled chord’s left or right edge to make it narrower — empty slots appear in the freed space. A 4/4 bar can hold at most four slots (filled, empty, or mixed). Hover the × on a filled chip to clear it. **Edit** on a section changes its time signature (and bar count) or renames it. **+ Append Section** adds another section.
 
 ## Agent CLI
 

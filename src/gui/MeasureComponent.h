@@ -26,6 +26,11 @@ public:
     std::function<void(int slot)> onSlotSelected;
 
 private:
+    void syncSlots();
+    void wireSlot(ChordSlotComponent& slot);
+    void handleResize(int slotIndex, bool fromLeft, int x);
+    int spanFromResizeX(int slotIndex, bool fromLeft, int x) const;
+
     Song& song_;
     int section_ = 0;
     int measure_ = 0;

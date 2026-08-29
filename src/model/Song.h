@@ -13,6 +13,7 @@ namespace chords
 struct ChordSlot
 {
     std::optional<Chord> chord;
+    int span = 1; // grid units this slot occupies; slots in a bar sum to timeSig.maxSlots()
 };
 
 struct Measure
@@ -57,6 +58,22 @@ public:
     void setChord(int sectionIndex, int measureIndex, int slotIndex, std::optional<Chord> chord);
     std::optional<Chord> getChord(int sectionIndex, int measureIndex, int slotIndex) const;
 
+    int maxSlots(int sectionIndex) const;
+    int slotSpan(int sectionIndex, int measureIndex, int slotIndex) const;
+    bool canSplitSlot(int sectionIndex, int measureIndex, int slotIndex) const;
+    int emptySpanOnSide(int sectionIndex, int measureIndex, int slotIndex, bool left) const;
+
+    /** Fill an empty slot, or split a filled one in half and insert `chord` on the chosen side. */
+    void placeChord(int sectionIndex, int measureIndex, int slotIndex,
+                    const Chord& chord, bool insertAfter);
+
+    /** Snap a filled slot to `newSpan` units; freed units become empty slots on that edge. */
+    void resizeSlot(int sectionIndex, int measureIndex, int slotIndex,
+                    int newSpan, bool fromLeft);
+
+    void beginGesture();
+    void endGesture();
+
     void resetToDefault();
 
     void addListener(Listener listener) { listeners_.push_back(std::move(listener)); }
@@ -68,10 +85,13 @@ private:
     bool valid(int sectionIndex, int measureIndex, int slotIndex) const;
     static Section makeSection(std::string name, TimeSignature ts = {});
     static void syncMeasuresToTimeSignature(Section& section);
+    static void normalizeMeasure(Measure& measure, int capacity);
 
     double bpm_ = 120.0;
     std::vector<Section> sections_;
     std::vector<Listener> listeners_;
+    mutable int gestureDepth_ = 0;
+    mutable bool pendingNotify_ = false;
 };
 
 } // namespace chords

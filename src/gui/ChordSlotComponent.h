@@ -21,21 +21,34 @@ public:
     void resized() override {}
     void mouseEnter(const juce::MouseEvent& e) override;
     void mouseExit(const juce::MouseEvent& e) override;
+    void mouseMove(const juce::MouseEvent& e) override;
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
 
     bool isInterestedInDragSource(const SourceDetails& details) override;
     void itemDragEnter(const SourceDetails& details) override;
+    void itemDragMove(const SourceDetails& details) override;
     void itemDragExit(const SourceDetails& details) override;
     void itemDropped(const SourceDetails& details) override;
 
     std::function<void()> onSelected;
+    std::function<void(int slot, bool fromLeft, int parentX)> onResizeDrag;
 
 private:
+    enum class Edge
+    {
+        None,
+        Left,
+        Right
+    };
+
     std::optional<Chord> chord() const;
     AppLookAndFeel* laf() const;
     bool hitClear(juce::Point<float> p) const;
+    Edge hitEdge(juce::Point<float> p) const;
+    void updateCursor(juce::Point<float> p);
+    void rememberIncoming(const SourceDetails& details);
 
     Song& song_;
     int section_ = 0;
@@ -46,6 +59,11 @@ private:
     bool dragging_ = false;
     bool hoverClear_ = false;
     bool hover_ = false;
+    bool resizing_ = false;
+    bool resizeFromLeft_ = false;
+    bool gesture_ = false;
+    bool splitAfter_ = true;
+    juce::String incomingName_;
 };
 
 } // namespace chords

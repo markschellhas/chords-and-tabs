@@ -20,10 +20,18 @@ std::vector<PlayEvent> buildTimeline(const Song& song)
         {
             const auto& measure = section.measures[static_cast<size_t>(mi)];
             const int n = std::max(1, static_cast<int>(measure.slots.size()));
-            const double slotBeats = measureBeats / static_cast<double>(n);
+            int totalSpan = 0;
+            for (const auto& slot : measure.slots)
+                totalSpan += std::max(1, slot.span);
+            if (totalSpan < 1)
+                totalSpan = n;
 
             for (int sl = 0; sl < n; ++sl)
             {
+                const auto& slot = measure.slots[static_cast<size_t>(sl)];
+                const double slotBeats = measureBeats * static_cast<double>(std::max(1, slot.span))
+                                         / static_cast<double>(totalSpan);
+
                 PlayEvent e;
                 e.startBeat = beat;
                 e.durationBeats = slotBeats;
@@ -31,7 +39,6 @@ std::vector<PlayEvent> buildTimeline(const Song& song)
                 e.measureIndex = mi;
                 e.slotIndex = sl;
 
-                const auto& slot = measure.slots[static_cast<size_t>(sl)];
                 if (slot.chord.has_value())
                 {
                     e.chord = *slot.chord;

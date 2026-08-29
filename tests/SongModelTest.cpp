@@ -74,6 +74,69 @@ int main()
     s2.setTimeSignature(0, { 4, 4 });
     if (s2.sections()[0].measures.size() != 4) fail("4/4 resizes to 4 bars");
 
+    Song s3;
+    if (s3.slotSpan(0, 0, 0) != 4) fail("full bar span 4");
+    if (s3.maxSlots(0) != 4) fail("4/4 max 4 slots");
+    if (! s3.canSplitSlot(0, 0, 0)) fail("full chord can split");
+
+    s3.placeChord(0, 0, 0, CircleOfFifths::majorChord(11), true); // F after C
+    if (s3.sections()[0].measures[0].slots.size() != 2) fail("drop splits into 2");
+    if (! s3.getChord(0, 0, 0) || s3.getChord(0, 0, 0)->name() != "C") fail("keep C");
+    if (! s3.getChord(0, 0, 1) || s3.getChord(0, 0, 1)->name() != "F") fail("insert F");
+    if (s3.slotSpan(0, 0, 0) != 2 || s3.slotSpan(0, 0, 1) != 2) fail("halved spans");
+
+    s3.placeChord(0, 0, 0, CircleOfFifths::majorChord(1), false); // G before C
+    if (s3.sections()[0].measures[0].slots.size() != 3) fail("second drop 3 slots");
+    if (! s3.getChord(0, 0, 0) || s3.getChord(0, 0, 0)->name() != "G") fail("G on left");
+    if (s3.slotSpan(0, 0, 0) != 1 || s3.slotSpan(0, 0, 1) != 1) fail("C half is 1+1");
+    if (s3.slotSpan(0, 0, 2) != 2) fail("F still 2");
+
+    s3.placeChord(0, 0, 2, CircleOfFifths::minorChord(11), true); // Dm after F
+    if (s3.sections()[0].measures[0].slots.size() != 4) fail("third drop 4 slots");
+    s3.placeChord(0, 0, 0, CircleOfFifths::majorChord(2), true); // at max: replace
+    if (s3.sections()[0].measures[0].slots.size() != 4) fail("max 4 slots stays");
+    if (! s3.getChord(0, 0, 0) || s3.getChord(0, 0, 0)->name() != "D") fail("replace at max");
+
+    Song s4;
+    s4.resizeSlot(0, 0, 0, 2, false);
+    if (s4.sections()[0].measures[0].slots.size() != 3) fail("shrink right pops empties");
+    if (! s4.getChord(0, 0, 0) || s4.getChord(0, 0, 0)->name() != "C") fail("C remains");
+    if (s4.slotSpan(0, 0, 0) != 2) fail("C span 2");
+    if (s4.getChord(0, 0, 1) || s4.getChord(0, 0, 2)) fail("empty slots after shrink");
+    if (s4.slotSpan(0, 0, 1) != 1 || s4.slotSpan(0, 0, 2) != 1) fail("unit empty slots");
+
+    s4.resizeSlot(0, 0, 0, 1, false);
+    if (s4.sections()[0].measures[0].slots.size() != 4) fail("narrower pops 4th slot");
+    if (s4.emptySpanOnSide(0, 0, 0, false) != 3) fail("3 empty units to the right");
+
+    s4.resizeSlot(0, 0, 0, 3, false);
+    if (s4.sections()[0].measures[0].slots.size() != 2) fail("grow absorbs empties");
+    if (s4.slotSpan(0, 0, 0) != 3) fail("grown to 3");
+    if (s4.getChord(0, 0, 1)) fail("one empty remains");
+
+    Song s5;
+    s5.resizeSlot(0, 0, 0, 2, true);
+    if (s5.sections()[0].measures[0].slots.size() != 3) fail("shrink left pops empties");
+    if (s5.getChord(0, 0, 0) || s5.getChord(0, 0, 1)) fail("empties on left");
+    if (! s5.getChord(0, 0, 2) || s5.getChord(0, 0, 2)->name() != "C") fail("C on right");
+
+    Song s6;
+    s6.setTimeSignature(0, { 3, 4 });
+    if (s6.maxSlots(0) != 3) fail("3/4 max 3 slots");
+    if (s6.slotSpan(0, 0, 0) != 3) fail("3/4 full span 3");
+    s6.resizeSlot(0, 0, 0, 1, false);
+    if (s6.sections()[0].measures[0].slots.size() != 3) fail("3/4 max 3 after shrink");
+    s6.addSlot(0, 0);
+    if (s6.sections()[0].measures[0].slots.size() != 3) fail("3/4 cannot add 4th");
+
+    Song s7;
+    s7.placeChord(0, 0, 0, CircleOfFifths::majorChord(1), true);
+    const auto splitTl = buildTimeline(s7);
+    if (std::abs(splitTl[0].durationBeats - 2.0) > 1.0e-9) fail("split duration 2");
+    if (std::abs(splitTl[1].durationBeats - 2.0) > 1.0e-9) fail("new slot duration 2");
+    if (splitTl[1].chord.name() != "G") fail("timeline new chord");
+    if (std::abs(timelineLengthBeats(splitTl) - 32.0) > 1.0e-9) fail("split keeps 32 beats");
+
     if (failures == 0)
         std::cout << "SongModelTest: OK\n";
     return failures == 0 ? 0 : 1;
