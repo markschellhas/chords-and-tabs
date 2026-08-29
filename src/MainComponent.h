@@ -44,7 +44,7 @@ private:
     ChordEngine engine_;
 
     juce::Label title_ { {}, "Chords & Tabs" };
-    juce::Label hint_ { {}, "Left / Right change key    drag chords onto bars    space plays" };
+    juce::Label hint_ { {}, "Left / Right change key    drag onto a chord to split    drag edges to open slots    space plays" };
     TransportStrip transport_;
     CircleOfFifthsComponent circle_;
     SectionListComponent sections_;

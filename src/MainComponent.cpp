@@ -28,7 +28,7 @@ MainComponent::MainComponent()
 
     title_.setJustificationType(juce::Justification::centred);
     title_.setFont(juce::Font(juce::FontOptions(22.0f).withStyle("Bold")));
-    hint_.setText("Left / Right change key    drag chords onto bars    space plays",
+    hint_.setText("Left / Right change key    drag onto a chord to split    drag edges to open slots    space plays",
                   juce::dontSendNotification);
     hint_.setJustificationType(juce::Justification::centred);
     hint_.setColour(juce::Label::textColourId, lookAndFeel_.muted());

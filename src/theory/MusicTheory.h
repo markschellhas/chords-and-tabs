@@ -40,6 +40,8 @@ struct TimeSignature
 
     std::string label() const;
     double quarterBeatsPerMeasure() const;
+    /** Grid units / max chord slots in one bar (4/4 → 4, 3/4 → 3, 6/8 → 6). */
+    int maxSlots() const { return numerator < 1 ? 1 : numerator; }
 };
 
 /** The 12 stations of the circle of fifths. Index 0 is C / Am. */
