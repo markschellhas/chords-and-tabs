@@ -1,13 +1,44 @@
 #include "MainComponent.h"
+#include "api/SongJson.h"
 
 namespace chords
 {
 
-juce::File MainComponent::settingsFile()
+juce::File MainComponent::settingsDirectory()
 {
     return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-        .getChildFile("chords-and-tabs")
-        .getChildFile("device.xml");
+        .getChildFile("chords-and-tabs");
+}
+
+juce::File MainComponent::settingsFile()
+{
+    return settingsDirectory().getChildFile("device.xml");
+}
+
+void MainComponent::writeAgentSnapshot(const juce::String& fileName, const std::string& json) const
+{
+    const auto dir = settingsDirectory();
+    dir.createDirectory();
+    dir.getChildFile(fileName).replaceWithText(juce::String(json));
+}
+
+void MainComponent::publishAgentState()
+{
+    const AgentView view { circle_.selectedIndex() };
+    const auto songJson = songToJson(song_, view);
+    const auto progressionsJson = progressionsToJson(song_, view);
+
+    agentServer_.setSongJson(songJson);
+    agentServer_.setProgressionsJson(progressionsJson);
+
+    writeAgentSnapshot("song.json", songJson);
+    writeAgentSnapshot("progressions.json", progressionsJson);
+
+    const auto port = agentServer_.port();
+    const auto meta = std::string("{\"app\":\"chords-and-tabs\",\"port\":")
+                    + std::to_string(port)
+                    + ",\"url\":\"http://127.0.0.1:" + std::to_string(port) + "\"}";
+    writeAgentSnapshot("agent-api.json", meta);
 }
 
 MainComponent::MainComponent()
@@ -40,6 +71,7 @@ MainComponent::MainComponent()
         previewChord_.reset();
         updateKeyboardHighlight();
         grabKeyboardFocus();
+        publishAgentState();
     };
     circle_.onChordPreview = [this](const Chord& c) {
         previewChord_ = c;
@@ -58,7 +90,11 @@ MainComponent::MainComponent()
 
     song_.addListener([this] {
         engine_.setSong(song_);
+        publishAgentState();
     });
+
+    agentServer_.start(); // loopback API; snapshots remain if the port is taken
+    publishAgentState();
 
     addAndMakeVisible(title_);
     addAndMakeVisible(hint_);
@@ -73,6 +109,7 @@ MainComponent::MainComponent()
 
 MainComponent::~MainComponent()
 {
+    agentServer_.stop();
     saveDeviceState();
     deviceManager_.removeAudioCallback(&engine_);
     setLookAndFeel(nullptr);
