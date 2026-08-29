@@ -39,8 +39,11 @@ private:
     void publishAgentState();
     static juce::File settingsDirectory();
     static juce::File settingsFile();
+    static juce::File prefsFile();
     void loadDeviceState();
     void saveDeviceState();
+    void loadInstrumentPref();
+    void saveInstrumentPref();
 
     AppLookAndFeel lookAndFeel_;
     juce::AudioDeviceManager deviceManager_;

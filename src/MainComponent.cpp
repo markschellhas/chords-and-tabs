@@ -16,6 +16,11 @@ juce::File MainComponent::settingsFile()
     return settingsDirectory().getChildFile("device.xml");
 }
 
+juce::File MainComponent::prefsFile()
+{
+    return settingsDirectory().getChildFile("prefs.xml");
+}
+
 void MainComponent::publishAgentState()
 {
     const AgentView view { circle_.selectedIndex() };
@@ -45,6 +50,7 @@ MainComponent::MainComponent()
     setOpaque(true);
 
     loadDeviceState();
+    loadInstrumentPref();
     if (deviceManager_.getCurrentAudioDevice() == nullptr)
         deviceManager_.initialise(0, 2, nullptr, true);
     deviceManager_.addAudioCallback(&engine_);
@@ -90,6 +96,14 @@ MainComponent::MainComponent()
     agentServer_.start(); // loopback API; snapshots remain if the port is taken
     publishAgentState();
 
+    piano_.setSoundName(engine_.instrumentName());
+    piano_.onCycleSound = [this](int delta) {
+        engine_.cycleInstrument(delta);
+        piano_.setSoundName(engine_.instrumentName());
+        saveInstrumentPref();
+        grabKeyboardFocus();
+    };
+
     addAndMakeVisible(title_);
     addAndMakeVisible(hint_);
     addAndMakeVisible(transport_);
@@ -105,6 +119,7 @@ MainComponent::~MainComponent()
 {
     agentServer_.stop();
     saveDeviceState();
+    saveInstrumentPref();
     deviceManager_.removeAudioCallback(&engine_);
     setLookAndFeel(nullptr);
 }
@@ -127,6 +142,24 @@ void MainComponent::saveDeviceState()
         file.getParentDirectory().createDirectory();
         xml->writeTo(file);
     }
+}
+
+void MainComponent::loadInstrumentPref()
+{
+    const auto file = prefsFile();
+    if (! file.existsAsFile())
+        return;
+    if (auto xml = juce::XmlDocument::parse(file))
+        engine_.setInstrument(instrumentFromIndex(xml->getIntAttribute("instrument", 0)));
+}
+
+void MainComponent::saveInstrumentPref()
+{
+    juce::XmlElement xml("prefs");
+    xml.setAttribute("instrument", static_cast<int>(engine_.instrument()));
+    const auto file = prefsFile();
+    file.getParentDirectory().createDirectory();
+    xml.writeTo(file);
 }
 
 void MainComponent::showDeviceDialog()
@@ -203,8 +236,8 @@ void MainComponent::resized()
     auto transport = r.removeFromTop(44);
     transport_.setBounds(transport);
 
-    auto keys = r.removeFromBottom(118);
-    piano_.setBounds(keys.reduced(8, 8));
+    auto keys = r.removeFromBottom(146);
+    piano_.setBounds(keys.reduced(8, 6));
 
     const int circleH = juce::jlimit(230, 340, r.getHeight() / 3);
     circle_.setBounds(r.removeFromTop(circleH).reduced(8, 4));

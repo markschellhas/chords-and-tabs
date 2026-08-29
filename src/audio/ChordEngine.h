@@ -1,5 +1,6 @@
 #pragma once
 
+#include "audio/Instruments.h"
 #include "model/Song.h"
 #include "model/Timeline.h"
 
@@ -36,6 +37,11 @@ public:
 
     double sampleRate() const { return sampleRate_.load(std::memory_order_acquire); }
 
+    void setInstrument(Instrument instrument);
+    void cycleInstrument(int delta);
+    Instrument instrument() const;
+    const char* instrumentName() const;
+
     void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
                                           int numInputChannels,
                                           float* const* outputChannelData,
@@ -51,6 +57,7 @@ private:
     void startChord(const Chord& chord, juce::MidiBuffer& midi, int sampleOffset);
     void applyEvent(const PlayEvent* event, juce::MidiBuffer& midi, int sampleOffset);
 
+    std::atomic<int> instrument_ { static_cast<int>(Instrument::Piano) };
     juce::Synthesiser synth_;
     juce::CriticalSection lock_;
     std::vector<PlayEvent> events_;
@@ -64,6 +71,7 @@ private:
     std::atomic<int> numSounding_ { 0 };
     std::atomic<int> sounding_ { 0 }; // packed? we'll keep an array behind the lock for event
     std::array<std::atomic<int>, 3> notes_;
+    std::atomic<bool> retrigger_ { false };
 
     int lastSection_ = -1;
     int lastMeasure_ = -1;
