@@ -54,7 +54,8 @@ public:
                      bool shouldDrawButtonAsDown) override;
 };
 
-class PianoKeyboard : public juce::Component
+class PianoKeyboard : public juce::Component,
+                      private juce::Timer
 {
 public:
     PianoKeyboard();
@@ -87,8 +88,10 @@ private:
         juce::Rectangle<float> bounds;
     };
 
+    void timerCallback() override;
     void rebuildKeys();
     bool isHighlighted(int midi) const;
+    void lingerNote(int midi);
     int midiAt(juce::Point<float> pos) const;
     void beginInteractiveNote(int midi);
     void endInteractiveNote(int midi);
@@ -112,6 +115,7 @@ private:
     std::set<int> highlighted_;
     std::set<int> pressed_;
     std::map<int, int> pressCount_;
+    std::map<int, juce::uint32> lingerUntil_;
     std::map<char, int> computerNotes_;
     std::set<char> octaveHeld_;
     int mouseNote_ = -1;

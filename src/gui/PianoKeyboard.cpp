@@ -207,7 +207,39 @@ void PianoKeyboard::clearHighlights()
 
 bool PianoKeyboard::isHighlighted(int midi) const
 {
-    return highlighted_.count(midi) > 0 || pressed_.count(midi) > 0;
+    if (highlighted_.count(midi) > 0 || pressed_.count(midi) > 0)
+        return true;
+    const auto it = lingerUntil_.find(midi);
+    return it != lingerUntil_.end()
+        && juce::Time::getMillisecondCounter() < it->second;
+}
+
+void PianoKeyboard::lingerNote(int midi)
+{
+    lingerUntil_[midi] = juce::Time::getMillisecondCounter() + 220;
+    startTimerHz(30);
+}
+
+void PianoKeyboard::timerCallback()
+{
+    const auto now = juce::Time::getMillisecondCounter();
+    bool dirty = false;
+    for (auto it = lingerUntil_.begin(); it != lingerUntil_.end();)
+    {
+        if (now >= it->second)
+        {
+            it = lingerUntil_.erase(it);
+            dirty = true;
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    if (dirty)
+        repaint();
+    if (lingerUntil_.empty())
+        stopTimer();
 }
 
 void PianoKeyboard::resized()
@@ -299,6 +331,7 @@ void PianoKeyboard::endInteractiveNote(int midi)
         return;
     pressCount_.erase(it);
     pressed_.erase(midi);
+    lingerNote(midi);
     if (onNoteOff)
         onNoteOff(midi);
     repaint();
@@ -317,6 +350,7 @@ void PianoKeyboard::setMouseNote(int midi)
 
 void PianoKeyboard::mouseDown(const juce::MouseEvent& e)
 {
+    setMouseCursor(juce::MouseCursor::PointingHandCursor);
     setMouseNote(midiAt(e.position));
 }
 

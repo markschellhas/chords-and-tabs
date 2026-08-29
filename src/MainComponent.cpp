@@ -285,8 +285,10 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component*)
     return false;
 }
 
-bool MainComponent::keyStateChanged(bool, juce::Component*)
+bool MainComponent::keyStateChanged(bool isKeyDown, juce::Component*)
 {
+    if (isKeyDown)
+        return false;
     if (dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr)
         return false;
 
