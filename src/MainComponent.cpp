@@ -270,7 +270,7 @@ void MainComponent::updateHint()
     switch (navRegion_)
     {
         case NavRegion::Circle:
-            text = "j/k move between areas    h/l or ←/→ change key    space plays";
+            text = "j/k move between areas    h/l or left/right change key    space plays";
             break;
         case NavRegion::Song:
             text = "j/k move between areas    space plays";
