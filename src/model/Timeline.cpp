@@ -1,0 +1,71 @@
+#include "model/Timeline.h"
+
+#include <algorithm>
+
+namespace chords
+{
+
+std::vector<PlayEvent> buildTimeline(const Song& song)
+{
+    std::vector<PlayEvent> events;
+    double beat = 0.0;
+
+    const auto& sections = song.sections();
+    for (int si = 0; si < static_cast<int>(sections.size()); ++si)
+    {
+        const auto& section = sections[static_cast<size_t>(si)];
+        const double measureBeats = section.timeSig.quarterBeatsPerMeasure();
+
+        for (int mi = 0; mi < static_cast<int>(section.measures.size()); ++mi)
+        {
+            const auto& measure = section.measures[static_cast<size_t>(mi)];
+            const int n = std::max(1, static_cast<int>(measure.slots.size()));
+            const double slotBeats = measureBeats / static_cast<double>(n);
+
+            for (int sl = 0; sl < n; ++sl)
+            {
+                PlayEvent e;
+                e.startBeat = beat;
+                e.durationBeats = slotBeats;
+                e.sectionIndex = si;
+                e.measureIndex = mi;
+                e.slotIndex = sl;
+
+                const auto& slot = measure.slots[static_cast<size_t>(sl)];
+                if (slot.chord.has_value())
+                {
+                    e.chord = *slot.chord;
+                    e.rest = false;
+                }
+                events.push_back(e);
+                beat += slotBeats;
+            }
+        }
+    }
+
+    return events;
+}
+
+double timelineLengthBeats(const std::vector<PlayEvent>& events)
+{
+    if (events.empty())
+        return 0.0;
+    const auto& last = events.back();
+    return last.startBeat + last.durationBeats;
+}
+
+const PlayEvent* eventAt(const std::vector<PlayEvent>& events, double beat)
+{
+    if (events.empty() || beat < 0.0)
+        return nullptr;
+
+    for (const auto& e : events)
+    {
+        if (beat >= e.startBeat && beat < e.startBeat + e.durationBeats)
+            return &e;
+    }
+
+    return nullptr;
+}
+
+} // namespace chords
