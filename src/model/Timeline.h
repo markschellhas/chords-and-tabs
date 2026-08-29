@@ -16,6 +16,7 @@ struct PlayEvent
     int sectionIndex = 0;
     int measureIndex = 0;
     int slotIndex = 0;
+    int repeatPass = 0; // 0 = first time through a row, 1 = the one repeat
 };
 
 std::vector<PlayEvent> buildTimeline(const Song& song);

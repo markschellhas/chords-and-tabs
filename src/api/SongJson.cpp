@@ -124,7 +124,19 @@ std::string songToJson(const Song& song, const AgentView& view)
             os << ',';
         os << "{\"name\":\"" << jsonEscape(section.name) << "\""
            << ",\"timeSignature\":\"" << jsonEscape(section.timeSig.label()) << "\""
-           << ",\"measures\":[";
+           << ",\"rowRepeats\":[";
+
+        const int rows = Song::rowCount(static_cast<int>(section.measures.size()));
+        for (int row = 0; row < rows; ++row)
+        {
+            if (row > 0)
+                os << ',';
+            const bool on = row < static_cast<int>(section.rowRepeats.size())
+                            && section.rowRepeats[static_cast<size_t>(row)] != 0;
+            os << (on ? "true" : "false");
+        }
+
+        os << "],\"measures\":[";
 
         for (size_t mi = 0; mi < section.measures.size(); ++mi)
         {
@@ -167,7 +179,19 @@ std::string progressionsToJson(const Song& song, const AgentView& view)
 
         os << "{\"name\":\"" << jsonEscape(section.name) << "\""
            << ",\"timeSignature\":\"" << jsonEscape(section.timeSig.label()) << "\""
-           << ",\"progression\":\"" << jsonEscape(sectionProgressionText(section)) << "\""
+           << ",\"rowRepeats\":[";
+
+        const int rows = Song::rowCount(static_cast<int>(section.measures.size()));
+        for (int row = 0; row < rows; ++row)
+        {
+            if (row > 0)
+                os << ',';
+            const bool on = row < static_cast<int>(section.rowRepeats.size())
+                            && section.rowRepeats[static_cast<size_t>(row)] != 0;
+            os << (on ? "true" : "false");
+        }
+
+        os << "],\"progression\":\"" << jsonEscape(sectionProgressionText(section)) << "\""
            << ",\"chords\":[";
 
         bool firstChord = true;

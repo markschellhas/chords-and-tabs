@@ -68,6 +68,7 @@ private:
     int lastSection_ = -1;
     int lastMeasure_ = -1;
     int lastSlot_ = -1;
+    int lastRepeatPass_ = -1;
     bool lastRest_ = true;
 };
 

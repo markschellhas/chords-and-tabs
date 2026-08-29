@@ -45,6 +45,13 @@ int main()
     if (! contains(songJson, "\"name\":\"Chorus\"")) fail("song chorus");
     if (! contains(songJson, "\"name\":\"C\"")) fail("song starter C");
     if (! contains(songJson, "\"numeral\":\"I\"")) fail("song roman I");
+    if (! contains(songJson, "\"rowRepeats\":[false]")) fail("song default rowRepeats");
+    if (! contains(progJson, "\"rowRepeats\":[false]")) fail("progressions default rowRepeats");
+
+    song.setRowRepeat(0, 0, true);
+    const auto repeated = progressionsToJson(song, view);
+    if (! contains(repeated, "\"rowRepeats\":[true]")) fail("progressions repeat on");
+    song.setRowRepeat(0, 0, false);
 
     if (! contains(progJson, "\"progression\":\"C | G F C | Dm\""))
         fail("verse progression text");
