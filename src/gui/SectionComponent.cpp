@@ -1,27 +1,47 @@
 #include "gui/SectionComponent.h"
+#include "gui/AppLookAndFeel.h"
 
 namespace chords
 {
 
-void TimeSigView::paint(juce::Graphics& g)
+MoreButton::MoreButton()
+    : juce::Button("more")
+{
+    setTooltip("Section options");
+}
+
+void MoreButton::paintButton(juce::Graphics& g, bool highlighted, bool down)
 {
     auto* look = dynamic_cast<AppLookAndFeel*>(&getLookAndFeel());
-    const auto text = look != nullptr ? look->text() : juce::Colours::whitesmoke;
-    auto r = getLocalBounds().toFloat();
-    g.setColour(text);
-    g.setFont(juce::Font(juce::FontOptions(16.0f).withStyle("Bold")));
-    auto top = r.removeFromTop(r.getHeight() * 0.5f);
-    g.drawText(juce::String(ts_.numerator), top, juce::Justification::centred);
-    g.setColour(text.withAlpha(0.35f));
-    g.drawLine(r.getX() + 4.0f, r.getY(), r.getRight() - 4.0f, r.getY(), 1.0f);
-    g.setColour(text);
-    g.drawText(juce::String(ts_.denominator), r, juce::Justification::centred);
+    auto fill = look != nullptr ? look->accent() : juce::Colour(0xff3d7de0);
+    if (down)
+        fill = fill.brighter(0.16f);
+    else if (highlighted)
+        fill = fill.brighter(0.08f);
+
+    auto r = getLocalBounds().toFloat().reduced(2.0f);
+    const float side = juce::jmin(r.getWidth(), r.getHeight());
+    juce::Rectangle<float> circle(0.0f, 0.0f, side, side);
+    circle.setCentre(r.getCentre());
+
+    g.setColour(fill);
+    g.fillEllipse(circle);
+
+    g.setColour(juce::Colours::white);
+    const float cx = circle.getCentreX();
+    const float cy = circle.getCentreY();
+    for (int i = -1; i <= 1; ++i)
+        g.fillEllipse(cx + static_cast<float>(i) * 4.4f - 1.5f, cy - 1.5f, 3.0f, 3.0f);
 }
 
 SectionComponent::SectionComponent(Song& song, int sectionIndex)
     : song_(song), sectionIndex_(sectionIndex)
 {
+    more_.onClick = [this] { showMoreMenu(); };
+    addAndMakeVisible(more_);
+
     name_.setEditable(false, true, false);
+    name_.setJustificationType(juce::Justification::centredLeft);
     name_.setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
     name_.setFont(juce::Font(juce::FontOptions(18.0f).withStyle("Bold")));
     name_.onTextChange = [this] {
@@ -29,33 +49,71 @@ SectionComponent::SectionComponent(Song& song, int sectionIndex)
     };
     addAndMakeVisible(name_);
 
-    timeSig_.addItem("4/4", 1);
-    timeSig_.addItem("3/4", 2);
-    timeSig_.addItem("2/4", 3);
-    timeSig_.addItem("6/8", 4);
-    timeSig_.onChange = [this] {
-        TimeSignature ts { 4, 4 };
-        switch (timeSig_.getSelectedId())
-        {
-            case 2: ts = { 3, 4 }; break;
-            case 3: ts = { 2, 4 }; break;
-            case 4: ts = { 6, 8 }; break;
-            default: break;
-        }
-        song_.setTimeSignature(sectionIndex_, ts);
-    };
-    addAndMakeVisible(timeSig_);
-    addAndMakeVisible(timeSigView_);
-
-    addMeasure_.setTooltip("Add a bar");
-    addMeasure_.onClick = [this] { song_.addMeasure(sectionIndex_); };
-    addAndMakeVisible(addMeasure_);
-
-    remove_.setTooltip("Delete section");
-    remove_.onClick = [this] { song_.removeSection(sectionIndex_); };
-    addAndMakeVisible(remove_);
+    edit_.setComponentID("link");
+    edit_.setTooltip("Edit section");
+    if (auto* look = dynamic_cast<AppLookAndFeel*>(&getLookAndFeel()))
+        edit_.setColour(juce::TextButton::textColourOffId, look->accent());
+    edit_.onClick = [this] { showEditMenu(); };
+    addAndMakeVisible(edit_);
 
     rebuild();
+}
+
+void SectionComponent::showMoreMenu()
+{
+    juce::PopupMenu menu;
+    menu.addItem(1, "Rename");
+    menu.addItem(2, "Delete section", song_.sections().size() > 1);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&more_),
+        [this](int result) {
+            if (result == 1)
+                startRename();
+            else if (result == 2)
+                song_.removeSection(sectionIndex_);
+        });
+}
+
+void SectionComponent::showEditMenu()
+{
+    if (sectionIndex_ < 0 || sectionIndex_ >= static_cast<int>(song_.sections().size()))
+        return;
+
+    const auto& section = song_.sections()[static_cast<size_t>(sectionIndex_)];
+    const auto label = section.timeSig.label();
+
+    juce::PopupMenu menu;
+    menu.addSectionHeader("Time signature");
+    menu.addItem(1, "4/4  (4 bars)", true, label == "4/4");
+    menu.addItem(2, "3/4  (3 bars)", true, label == "3/4");
+    menu.addItem(3, "2/4  (2 bars)", true, label == "2/4");
+    menu.addItem(4, "6/8  (6 bars)", true, label == "6/8");
+    menu.addSeparator();
+    menu.addItem(10, "Rename");
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&edit_),
+        [this](int result) {
+            if (result == 10)
+                startRename();
+            else if (result > 0)
+                applyTimeSignature(result);
+        });
+}
+
+void SectionComponent::applyTimeSignature(int menuId)
+{
+    TimeSignature ts { 4, 4 };
+    switch (menuId)
+    {
+        case 2: ts = { 3, 4 }; break;
+        case 3: ts = { 2, 4 }; break;
+        case 4: ts = { 6, 8 }; break;
+        default: break;
+    }
+    song_.setTimeSignature(sectionIndex_, ts);
+}
+
+void SectionComponent::startRename()
+{
+    name_.showEditor();
 }
 
 void SectionComponent::rebuild()
@@ -66,13 +124,6 @@ void SectionComponent::rebuild()
 
     const auto& section = song_.sections()[static_cast<size_t>(sectionIndex_)];
     name_.setText(section.name, juce::dontSendNotification);
-    timeSigView_.set(section.timeSig);
-
-    const auto label = section.timeSig.label();
-    if (label == "3/4") timeSig_.setSelectedId(2, juce::dontSendNotification);
-    else if (label == "2/4") timeSig_.setSelectedId(3, juce::dontSendNotification);
-    else if (label == "6/8") timeSig_.setSelectedId(4, juce::dontSendNotification);
-    else timeSig_.setSelectedId(1, juce::dontSendNotification);
 
     for (int i = 0; i < static_cast<int>(section.measures.size()); ++i)
     {
@@ -97,67 +148,77 @@ void SectionComponent::setPlayhead(int measure, int slot)
         measures_[static_cast<size_t>(i)]->setPlayingSlot(i == measure ? slot : -1);
 }
 
+int SectionComponent::measureWidth(int areaWidth) const
+{
+    const int n = juce::jmax(1, static_cast<int>(measures_.size()));
+    const int gaps = kGap * (n - 1);
+    return juce::jmax(56, (areaWidth - gaps) / n);
+}
+
 int SectionComponent::preferredHeight(int width) const
 {
-    const int usable = juce::jmax(120, width - 50);
+    const int usable = juce::jmax(120, width - 16);
+    const int n = static_cast<int>(measures_.size());
+    if (n <= 0)
+        return kHeaderH + kChordH + 12;
+
+    const int boxW = measureWidth(usable);
     int x = 0;
     int rows = 1;
-    if (measures_.empty())
-        rows = 1;
-    for (const auto& m : measures_)
+    for (int i = 0; i < n; ++i)
     {
-        const int w = m->preferredWidth();
-        if (x > 0 && x + w > usable)
+        if (x > 0 && x + boxW > usable)
         {
             ++rows;
             x = 0;
         }
-        x += w + 4;
+        x += boxW + kGap;
     }
-    return kHeaderH + 8 + rows * kRowH + 8;
+    return kHeaderH + 4 + rows * (kChordH + 4) + 4;
 }
 
 void SectionComponent::layoutMeasures(juce::Rectangle<int> area, bool apply) const
 {
+    const int n = static_cast<int>(measures_.size());
+    if (n <= 0)
+        return;
+
+    const int boxW = measureWidth(area.getWidth());
     int x = area.getX();
     int y = area.getY();
     const int right = area.getRight();
+
     for (auto& m : measures_)
     {
-        const int w = m->preferredWidth();
-        if (x > area.getX() && x + w > right)
+        if (x > area.getX() && x + boxW > right)
         {
             x = area.getX();
-            y += kRowH;
+            y += kChordH + 4;
         }
         if (apply)
-            m->setBounds(x, y, w, kRowH);
-        x += w + 4;
+            m->setBounds(x, y, boxW, kChordH);
+        x += boxW + kGap;
     }
 }
 
-void SectionComponent::paint(juce::Graphics& g)
+void SectionComponent::lookAndFeelChanged()
 {
-    auto* look = dynamic_cast<AppLookAndFeel*>(&getLookAndFeel());
-    const auto panel = look != nullptr ? look->panel() : juce::Colour(0xff1c1f2a);
-    const auto text = look != nullptr ? look->text() : juce::Colours::whitesmoke;
-    auto r = getLocalBounds().toFloat().reduced(4.0f);
-    g.setColour(panel);
-    g.fillRoundedRectangle(r, 10.0f);
-    juce::ignoreUnused(text);
+    if (auto* look = dynamic_cast<AppLookAndFeel*>(&getLookAndFeel()))
+        edit_.setColour(juce::TextButton::textColourOffId, look->accent());
 }
+
+void SectionComponent::paint(juce::Graphics&) {}
 
 void SectionComponent::resized()
 {
-    auto r = getLocalBounds().reduced(8, 6);
-    auto header = r.removeFromTop(kHeaderH - 4);
-    remove_.setBounds(header.removeFromRight(28).reduced(2));
-    addMeasure_.setBounds(header.removeFromRight(64).reduced(2));
-    timeSig_.setBounds(header.removeFromRight(64).reduced(2, 4));
-    name_.setBounds(header.withTrimmedRight(8));
+    auto r = getLocalBounds().reduced(4, 2);
+    auto header = r.removeFromTop(kHeaderH);
+    more_.setBounds(header.removeFromLeft(32).withSizeKeepingCentre(28, 28));
+    header.removeFromLeft(6);
+    edit_.setBounds(header.removeFromRight(52).reduced(0, 4));
+    name_.setBounds(header);
 
     r.removeFromTop(2);
-    timeSigView_.setBounds(r.removeFromLeft(36).withHeight(48).withY(r.getY() + 8));
     layoutMeasures(r, true);
 }
 

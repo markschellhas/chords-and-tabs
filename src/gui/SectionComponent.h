@@ -11,14 +11,12 @@
 namespace chords
 {
 
-class TimeSigView : public juce::Component
+class MoreButton : public juce::Button
 {
 public:
-    void set(TimeSignature ts) { ts_ = ts; repaint(); }
-    void paint(juce::Graphics& g) override;
+    MoreButton();
 
-private:
-    TimeSignature ts_ { 4, 4 };
+    void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
 };
 
 class SectionComponent : public juce::Component
@@ -29,27 +27,32 @@ public:
     void rebuild();
     void setPlayhead(int measure, int slot);
     int preferredHeight(int width) const;
-    static constexpr int kHeaderH = 34;
-    static constexpr int kRowH = MeasureComponent::kHeight + 4;
+    static constexpr int kHeaderH = 36;
+    static constexpr int kChordH = MeasureComponent::kHeight;
+    static constexpr int kGap = 6;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void lookAndFeelChanged() override;
 
     std::function<void(int measure, int slot)> onSlotSelected;
 
 private:
+    void showMoreMenu();
+    void showEditMenu();
+    void applyTimeSignature(int menuId);
+    void startRename();
     void layoutMeasures(juce::Rectangle<int> area, bool apply) const;
+    int measureWidth(int areaWidth) const;
 
     Song& song_;
     int sectionIndex_ = 0;
     int playingMeasure_ = -1;
     int playingSlot_ = -1;
 
+    MoreButton more_;
     juce::Label name_;
-    juce::ComboBox timeSig_;
-    juce::TextButton addMeasure_ { "+ bar" };
-    juce::TextButton remove_ { "X" };
-    TimeSigView timeSigView_;
+    juce::TextButton edit_ { "Edit" };
     std::vector<std::unique_ptr<MeasureComponent>> measures_;
 };
 

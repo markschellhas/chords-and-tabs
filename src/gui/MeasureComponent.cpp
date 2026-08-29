@@ -6,16 +6,6 @@ namespace chords
 MeasureComponent::MeasureComponent(Song& song, int section, int measure)
     : song_(song), section_(section), measure_(measure)
 {
-    addSlot_.setButtonText("+");
-    addSlot_.setTooltip("Add another chord in this bar");
-    addSlot_.onClick = [this] { song_.addSlot(section_, measure_); };
-    addAndMakeVisible(addSlot_);
-
-    remove_.setButtonText("-");
-    remove_.setTooltip("Remove this bar");
-    remove_.onClick = [this] { song_.removeMeasure(section_, measure_); };
-    addAndMakeVisible(remove_);
-
     rebuild();
 }
 
@@ -52,31 +42,17 @@ void MeasureComponent::rebuild()
     resized();
 }
 
-int MeasureComponent::preferredWidth() const
-{
-    const int n = juce::jmax(1, static_cast<int>(slots_.size()));
-    return 16 + n * 76 + 44;
-}
-
-void MeasureComponent::paint(juce::Graphics& g)
-{
-    auto* look = dynamic_cast<AppLookAndFeel*>(&getLookAndFeel());
-    const auto muted = look != nullptr ? look->muted() : juce::Colours::grey;
-    auto r = getLocalBounds().toFloat().reduced(2.0f);
-    g.setColour(muted.withAlpha(0.55f));
-    g.drawLine(r.getX() + 4.0f, r.getY() + 6.0f, r.getRight() - 22.0f, r.getY() + 6.0f, 1.2f);
-}
-
 void MeasureComponent::resized()
 {
-    auto r = getLocalBounds().reduced(4, 10);
-    remove_.setBounds(r.removeFromRight(18).removeFromTop(18));
-    addSlot_.setBounds(r.removeFromRight(18).removeFromTop(18));
-    r.removeFromRight(2);
+    auto r = getLocalBounds();
     const int n = juce::jmax(1, static_cast<int>(slots_.size()));
-    const int w = juce::jmax(36, r.getWidth() / n);
+    const int gap = 3;
+    const int w = juce::jmax(28, (r.getWidth() - gap * (n - 1)) / n);
     for (auto& slot : slots_)
-        slot->setBounds(r.removeFromLeft(w).reduced(1, 0));
+    {
+        slot->setBounds(r.removeFromLeft(w));
+        r.removeFromLeft(gap);
+    }
 }
 
 } // namespace chords

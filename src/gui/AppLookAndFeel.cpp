@@ -54,6 +54,17 @@ void AppLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& butto
                                           bool highlighted, bool down)
 {
     auto bounds = button.getLocalBounds().toFloat().reduced(1.0f);
+
+    if (button.getComponentID() == "link")
+    {
+        if (highlighted || down)
+        {
+            g.setColour(accent_.withAlpha(down ? 0.22f : 0.12f));
+            g.fillRoundedRectangle(bounds, 6.0f);
+        }
+        return;
+    }
+
     auto bg = backgroundColour;
     if (down)
         bg = bg.brighter(0.16f);
@@ -98,49 +109,37 @@ void AppLookAndFeel::drawChordChip(juce::Graphics& g, juce::Rectangle<float> bou
                                    juce::Colour chip, juce::Colour chipText,
                                    juce::Colour accent, juce::Colour muted)
 {
-    const float r = 7.0f;
+    const float r = 5.0f;
     if (dropHover)
     {
-        g.setColour(accent.withAlpha(0.28f));
+        g.setColour(accent.withAlpha(0.95f));
         g.fillRoundedRectangle(bounds, r);
-        g.setColour(accent);
-        g.drawRoundedRectangle(bounds, r, 1.6f);
+        g.setColour(accent.brighter(0.25f));
+        g.drawRoundedRectangle(bounds, r, 1.4f);
     }
     else if (playing)
     {
-        g.setColour(accent.withAlpha(0.9f));
+        g.setColour(accent);
         g.fillRoundedRectangle(bounds, r);
-        g.setColour(accent.brighter(0.2f));
-        g.drawRoundedRectangle(bounds, r, 1.4f);
     }
     else if (filled)
     {
         g.setColour(chip);
         g.fillRoundedRectangle(bounds, r);
-        g.setColour(chip.brighter(0.25f));
-        g.drawRoundedRectangle(bounds, r, 1.0f);
     }
     else
     {
-        g.setColour(muted.withAlpha(0.12f));
+        g.setColour(chip.withMultipliedAlpha(0.28f));
         g.fillRoundedRectangle(bounds, r);
-        const float dash[] = { 4.0f, 3.0f };
-        g.setColour(muted.withAlpha(0.55f));
-        juce::Path stroke;
-        stroke.addRoundedRectangle(bounds.reduced(0.5f), r);
-        juce::PathFlatteningIterator it(stroke);
-        juce::Path dashed;
-        // Simple dashed outline
-        g.drawRoundedRectangle(bounds, r, 1.1f);
-        juce::ignoreUnused(dash, it, dashed);
     }
 
-    if (filled || playing)
+    if (filled || playing || dropHover)
     {
-        g.setColour(playing ? juce::Colour(0xff10141c) : chipText);
-        g.setFont(juce::Font(juce::FontOptions(15.0f).withStyle("Bold")));
-        g.drawText(name, bounds.reduced(10.0f, 0.0f), juce::Justification::centred);
+        g.setColour(playing || dropHover ? juce::Colour(0xff10141c) : chipText);
+        g.setFont(juce::Font(juce::FontOptions(16.0f).withStyle("Bold")));
+        g.drawText(name, bounds.reduced(8.0f, 0.0f), juce::Justification::centred);
     }
+    juce::ignoreUnused(muted);
 }
 
 } // namespace chords

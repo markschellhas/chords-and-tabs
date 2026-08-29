@@ -55,7 +55,7 @@ private:
     juce::Colour wedgeInnerActive_ { 0xff8b97d0 };
     juce::Colour text_ { 0xffe8e4da };
     juce::Colour muted_ { 0xff8a8694 };
-    juce::Colour chip_ { 0xff3a4768 };
+    juce::Colour chip_ { 0xff3c6fd4 };
     juce::Colour chipText_ { 0xffeef2ff };
     juce::Colour accent_ { 0xff7eb6e8 };
     juce::Colour play_ { 0xff6fbf9a };

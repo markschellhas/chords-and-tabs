@@ -20,6 +20,7 @@ public:
     void setPlayhead(int section, int measure, int slot, bool playing);
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void lookAndFeelChanged() override;
 
     std::function<void(int section, int measure, int slot)> onSlotSelected;
 
@@ -34,7 +35,7 @@ private:
     Song& song_;
     juce::Viewport viewport_;
     Content content_;
-    juce::TextButton addSection_ { "+ Add section" };
+    juce::TextButton addSection_ { "+ Append Section" };
     std::vector<std::unique_ptr<SectionComponent>> sections_;
     int playSection_ = -1;
     int playMeasure_ = -1;
