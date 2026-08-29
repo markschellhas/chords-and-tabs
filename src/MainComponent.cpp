@@ -1,4 +1,5 @@
 #include "MainComponent.h"
+#include "api/AgentClient.h"
 #include "api/SongJson.h"
 
 namespace chords
@@ -13,13 +14,6 @@ juce::File MainComponent::settingsDirectory()
 juce::File MainComponent::settingsFile()
 {
     return settingsDirectory().getChildFile("device.xml");
-}
-
-void MainComponent::writeAgentSnapshot(const juce::String& fileName, const std::string& json) const
-{
-    const auto dir = settingsDirectory();
-    dir.createDirectory();
-    dir.getChildFile(fileName).replaceWithText(juce::String(json));
 }
 
 void MainComponent::publishAgentState()

@@ -41,7 +41,6 @@ private:
     static juce::File settingsFile();
     void loadDeviceState();
     void saveDeviceState();
-    void writeAgentSnapshot(const juce::String& fileName, const std::string& json) const;
 
     AppLookAndFeel lookAndFeel_;
     juce::AudioDeviceManager deviceManager_;

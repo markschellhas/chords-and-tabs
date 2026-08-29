@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "chords-and-tabs": {
-      "command": "python3",
-      "args": ["tools/chords_agent_mcp.py"]
-    }
-  }
-}

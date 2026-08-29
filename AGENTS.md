@@ -1,35 +1,24 @@
-# Agent API for Chords & Tabs
+# Agent access for Chords & Tabs
 
-The running app exposes a **read-only loopback HTTP API** so a Cursor (or other) agent can see which chord progressions have been added to the current song.
-
-Bind: `127.0.0.1:17891` (override with `CHORDS_AGENT_PORT`).
-
-## Query the live song
+Any agent that can run a command can read the chords that have been added to the current song:
 
 ```bash
-curl -s http://127.0.0.1:17891/progressions
+chords-agent progressions
 ```
 
-Other routes:
+That is the contract. Do not infer the song from source defaults or the starter Verse/Chorus.
 
-| Path | What it returns |
-|------|-----------------|
-| `GET /progressions` | Chords that have been placed, grouped by section, plus a `|`-separated progression string |
-| `GET /song` | Full document, empty slots as `null` |
-| `GET /health` | `{ "ok": true }` if the app is running |
-| `GET /` | Catalog of endpoints |
+| Command | Output |
+|---------|--------|
+| `chords-agent progressions` | Placed chords, grouped by section, plus a `C \| G F C \| Dm` string |
+| `chords-agent song` | Full document; empty slots are `null` |
+| `chords-agent health` | Live app is up (exit `0`) or not (exit `2`) |
 
-## If the app is not reachable
+`--live` skips the on-disk snapshot and fails if the app is not running.
 
-The same JSON is written on every edit to:
+`chords-agent` talks to the app on `127.0.0.1` (port `17891`, or `$CHORDS_AGENT_PORT`, or the port in `agent-api.json`). If the process is down it prints the last snapshot from `$CHORDS_AGENT_HOME` or `~/.config/chords-and-tabs/` (`~/Library/Application Support/chords-and-tabs/` on macOS).
 
-- `~/.config/chords-and-tabs/progressions.json`
-- `~/.config/chords-and-tabs/song.json`
-- `~/.config/chords-and-tabs/agent-api.json` (port + URL)
-
-On macOS those files live under `~/Library/Application Support/chords-and-tabs/`.
-
-## Example `/progressions` body
+## Example `progressions` body
 
 ```json
 {
@@ -49,5 +38,3 @@ On macOS those files live under `~/Library/Application Support/chords-and-tabs/`
 ```
 
 Empty slots are omitted from `chords` and shown as `-` in `progression`. Roman numerals are included when the chord is diatonic in the circle’s current key.
-
-Prefer `/progressions` when answering “what chords are in this song?”

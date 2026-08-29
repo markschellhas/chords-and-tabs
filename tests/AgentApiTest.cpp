@@ -1,62 +1,26 @@
+#include "api/AgentClient.h"
 #include "api/AgentHttpServer.h"
 #include "api/SongJson.h"
 #include "model/Song.h"
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-#include <cstring>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <string>
+#include <unistd.h>
 
 namespace
 {
 
-std::string httpGet(int port, const std::string& path)
-{
-    const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0)
-        return {};
-
-    sockaddr_in addr {};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(static_cast<uint16_t>(port));
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0)
-    {
-        ::close(fd);
-        return {};
-    }
-
-    const auto req = "GET " + path + " HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
-    if (::send(fd, req.data(), req.size(), 0) < 0)
-    {
-        ::close(fd);
-        return {};
-    }
-
-    std::string response;
-    char buf[2048];
-    for (;;)
-    {
-        const ssize_t n = ::recv(fd, buf, sizeof(buf), 0);
-        if (n <= 0)
-            break;
-        response.append(buf, static_cast<size_t>(n));
-    }
-    ::close(fd);
-
-    const auto sep = response.find("\r\n\r\n");
-    if (sep == std::string::npos)
-        return {};
-    return response.substr(sep + 4);
-}
-
 bool contains(const std::string& hay, const char* needle)
 {
     return hay.find(needle) != std::string::npos;
+}
+
+std::string uniqueHome()
+{
+    return (std::filesystem::temp_directory_path()
+            / ("chords-agent-test-" + std::to_string(::getpid()))).string();
 }
 
 } // namespace
@@ -103,36 +67,62 @@ int main()
     if (! contains(escaped, "\"name\":\"Verse \\\"A\\\"\""))
         fail("json escape quotes in section name");
 
+    const auto home = uniqueHome();
+    ::setenv("CHORDS_AGENT_HOME", home.c_str(), 1);
+    std::filesystem::remove_all(home);
+
     AgentHttpServer server;
     if (! server.start(0))
         fail("server start");
     else
     {
-        server.setSongJson(songToJson(song, view));
-        server.setProgressionsJson(progressionsToJson(song, view));
+        const auto liveProg = progressionsToJson(song, view);
+        const auto liveSong = songToJson(song, view);
+        server.setSongJson(liveSong);
+        server.setProgressionsJson(liveProg);
 
         const int port = server.port();
         if (port <= 0) fail("ephemeral port");
+        ::setenv("CHORDS_AGENT_PORT", std::to_string(port).c_str(), 1);
 
-        const auto health = httpGet(port, "/health");
-        if (! contains(health, "\"ok\":true")) fail("health ok");
+        writeAgentSnapshot("song.json", liveSong);
+        writeAgentSnapshot("progressions.json", liveProg);
+        writeAgentSnapshot("agent-api.json",
+                           std::string("{\"port\":") + std::to_string(port) + "}");
 
-        const auto catalog = httpGet(port, "/");
-        if (! contains(catalog, "/progressions")) fail("catalog lists progressions");
+        const auto health = httpGetLocal(port, "/health");
+        if (health.status != 200 || ! contains(health.body, "\"ok\":true"))
+            fail("health ok");
 
-        const auto live = httpGet(port, "/progressions");
-        if (! contains(live, "\"progression\":\"- | G F C | Dm\""))
+        const auto catalog = httpGetLocal(port, "/");
+        if (! contains(catalog.body, "/progressions")) fail("catalog lists progressions");
+
+        const auto live = readAgentDocument("/progressions", "progressions.json");
+        if (! live || live->source != AgentSource::Live)
+            fail("prefers live API");
+        if (! live || ! contains(live->body, "\"progression\":\"- | G F C | Dm\""))
             fail("GET /progressions live snapshot");
 
-        const auto full = httpGet(port, "/song");
-        if (! contains(full, "\"name\":\"Chorus\"")) fail("GET /song");
+        const auto full = httpGetLocal(port, "/song");
+        if (! contains(full.body, "\"name\":\"Chorus\"")) fail("GET /song");
 
-        const auto missing = httpGet(port, "/nope");
-        if (! contains(missing, "not found")) fail("404 body");
+        const auto missing = httpGetLocal(port, "/nope");
+        if (missing.status != 404) fail("404 status");
+
+        if (! agentIsLive()) fail("agentIsLive while serving");
 
         server.stop();
         if (server.running()) fail("stopped");
+        if (agentIsLive()) fail("not live after stop");
+
+        const auto snap = readAgentDocument("/progressions", "progressions.json");
+        if (! snap || snap->source != AgentSource::Snapshot)
+            fail("falls back to snapshot");
+        if (! snap || ! contains(snap->body, "\"name\":\"Dm\""))
+            fail("snapshot body");
     }
+
+    std::filesystem::remove_all(home);
 
     if (failures == 0)
         std::cout << "AgentApiTest: OK\n";
