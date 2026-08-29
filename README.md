@@ -7,7 +7,8 @@ A JUCE song-builder: pick a key on the circle of fifths, drag diatonic (and neig
 ## Features
 
 - Circle of fifths at the top; the active wedge sits at 12 o'clock
-- **Left / Right** (or mouse wheel) rotate the circle through keys
+- **j / k** move focus between the circle, song structure, and keyboard
+- **h / l** change key (circle) or sound (keyboard); **Left / Right** (or mouse wheel) also rotate the circle
 - Drag a wedge or an “in this key” chip into a bar under a section
 - Drop onto a filled chord to halve it and open a slot for the new chord; drag a chord’s left or right edge to shrink it and pop empty slots (4/4 bars hold at most four slots)
 - Add / rename / delete sections; bar count follows the time signature (4/4 → 4 bars)
@@ -48,11 +49,13 @@ On first launch, **Device** → pick **JACK** (PipeWire) or **ALSA**.
 
 | Key | Action |
 |-----|--------|
+| j / k | Move focus down / up between circle, song structure, and keyboard |
+| h / l | Circle: previous / next key. Keyboard: previous / next sound |
 | ← / → | Rotate the circle of fifths |
 | Space | Play / stop |
 | Click a piano key | Play that note |
 | Keyboard glyph | Toggle laptop-key mapping (off by default) |
-| A W S E D F T G Y H J K O L P ; ' | Notes when mapping is on (A=C, W=C♯, …) |
+| A W S E D F T G Y H J K O L P ; ' | Notes when mapping is on (A=C, W=C♯, …). These take over H/J/K/L from vim nav. |
 | Z / X | Octave down / up (when mapping is on) |
 | Keyboard chevrons | Previous / next sound |
 | Double-click section title | Rename |

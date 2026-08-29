@@ -17,12 +17,13 @@ public:
     explicit SectionListComponent(Song& song);
 
     void rebuild();
-    void setPlayhead(int section, int measure, int slot, bool playing);
+    void setPlayhead(int section, int measure, int slot, bool playing, float progress = 0.0f);
     void paint(juce::Graphics& g) override;
     void resized() override;
     void lookAndFeelChanged() override;
 
     std::function<void(int section, int measure, int slot)> onSlotSelected;
+    std::function<void(int section, int measure, int slot)> onSlotAudition;
 
 private:
     class Content : public juce::Component
@@ -41,6 +42,7 @@ private:
     int playMeasure_ = -1;
     int playSlot_ = -1;
     bool playing_ = false;
+    float playProgress_ = 0.0f;
 };
 
 } // namespace chords

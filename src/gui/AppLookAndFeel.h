@@ -40,11 +40,14 @@ public:
     juce::Font getLabelFont(juce::Label&) override;
     juce::Font getComboBoxFont(juce::ComboBox&) override;
 
+    void drawNavFocusFrame(juce::Graphics& g, juce::Rectangle<float> bounds) const;
+
     static void drawChordChip(juce::Graphics& g, juce::Rectangle<float> bounds,
                               const juce::String& name,
                               bool filled, bool playing, bool dropHover,
                               juce::Colour chip, juce::Colour chipText,
-                              juce::Colour accent, juce::Colour muted);
+                              juce::Colour accent, juce::Colour muted,
+                              float progress = 0.0f);
 
 private:
     juce::Colour bg_ { 0xff12141a };

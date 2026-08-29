@@ -14,7 +14,7 @@ class ChordSlotComponent : public juce::Component,
 public:
     ChordSlotComponent(Song& song, int section, int measure, int slot);
 
-    void setPlaying(bool playing);
+    void setPlaying(bool playing, float progress = 0.0f);
     void setIndices(int section, int measure, int slot);
 
     void paint(juce::Graphics& g) override;
@@ -33,6 +33,7 @@ public:
     void itemDropped(const SourceDetails& details) override;
 
     std::function<void()> onSelected;
+    std::function<void()> onAudition;
     std::function<void(int slot, bool fromLeft, int parentX)> onResizeDrag;
 
 private:
@@ -55,6 +56,7 @@ private:
     int measure_ = 0;
     int slot_ = 0;
     bool playing_ = false;
+    float progress_ = 0.0f;
     bool dropHover_ = false;
     bool dragging_ = false;
     bool hoverClear_ = false;

@@ -23,4 +23,7 @@ std::vector<PlayEvent> buildTimeline(const Song& song);
 double timelineLengthBeats(const std::vector<PlayEvent>& events);
 const PlayEvent* eventAt(const std::vector<PlayEvent>& events, double beat);
 
+/** Duration of one slot in quarter-note beats (same units as PlayEvent). */
+double slotDurationBeats(const Song& song, int sectionIndex, int measureIndex, int slotIndex);
+
 } // namespace chords

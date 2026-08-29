@@ -103,11 +103,21 @@ void AppLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& but
     g.drawText(button.getButtonText(), bounds, juce::Justification::centred);
 }
 
+void AppLookAndFeel::drawNavFocusFrame(juce::Graphics& g, juce::Rectangle<float> bounds) const
+{
+    bounds = bounds.reduced(1.5f);
+    g.setColour(accent_.withAlpha(0.22f));
+    g.drawRoundedRectangle(bounds.expanded(1.0f), 10.0f, 4.0f);
+    g.setColour(accent_);
+    g.drawRoundedRectangle(bounds, 8.0f, 2.0f);
+}
+
 void AppLookAndFeel::drawChordChip(juce::Graphics& g, juce::Rectangle<float> bounds,
                                    const juce::String& name,
                                    bool filled, bool playing, bool dropHover,
                                    juce::Colour chip, juce::Colour chipText,
-                                   juce::Colour accent, juce::Colour muted)
+                                   juce::Colour accent, juce::Colour muted,
+                                   float progress)
 {
     const float r = 5.0f;
     if (dropHover)
@@ -117,15 +127,27 @@ void AppLookAndFeel::drawChordChip(juce::Graphics& g, juce::Rectangle<float> bou
         g.setColour(accent.brighter(0.25f));
         g.drawRoundedRectangle(bounds, r, 1.4f);
     }
-    else if (playing)
+    else if (filled || playing)
     {
-        g.setColour(accent);
-        g.fillRoundedRectangle(bounds, r);
-    }
-    else if (filled)
-    {
-        g.setColour(chip);
-        g.fillRoundedRectangle(bounds, r);
+        const float p = playing ? juce::jlimit(0.0f, 1.0f, progress) : 0.0f;
+        {
+            juce::Graphics::ScopedSaveState state(g);
+            juce::Path clip;
+            clip.addRoundedRectangle(bounds, r);
+            g.reduceClipRegion(clip);
+            g.setColour(chip);
+            g.fillRect(bounds);
+            if (p > 0.0f)
+            {
+                g.setColour(chip.overlaidWith(juce::Colours::white.withAlpha(0.38f)));
+                g.fillRect(bounds.withWidth(bounds.getWidth() * p));
+            }
+        }
+        if (playing)
+        {
+            g.setColour(accent.withAlpha(0.7f));
+            g.drawRoundedRectangle(bounds, r, 1.2f);
+        }
     }
     else
     {
@@ -135,7 +157,7 @@ void AppLookAndFeel::drawChordChip(juce::Graphics& g, juce::Rectangle<float> bou
 
     if (filled || playing || dropHover)
     {
-        g.setColour(playing || dropHover ? juce::Colour(0xff10141c) : chipText);
+        g.setColour(dropHover ? juce::Colour(0xff10141c) : chipText);
         g.setFont(juce::Font(juce::FontOptions(16.0f).withStyle("Bold")));
         g.drawText(name, bounds.reduced(8.0f, 0.0f), juce::Justification::centred);
     }

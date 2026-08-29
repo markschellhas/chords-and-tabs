@@ -180,6 +180,10 @@ void SectionComponent::rebuild()
             if (onSlotSelected)
                 onSlotSelected(i, slot);
         };
+        m->onSlotAudition = [this, i](int slot) {
+            if (onSlotAudition)
+                onSlotAudition(i, slot);
+        };
         addAndMakeVisible(*m);
         measures_.push_back(std::move(m));
     }
@@ -196,16 +200,19 @@ void SectionComponent::rebuild()
         repeats_.push_back(std::move(sign));
     }
 
-    setPlayhead(playingMeasure_, playingSlot_);
+    setPlayhead(playingMeasure_, playingSlot_, playProgress_);
     resized();
 }
 
-void SectionComponent::setPlayhead(int measure, int slot)
+void SectionComponent::setPlayhead(int measure, int slot, float progress)
 {
     playingMeasure_ = measure;
     playingSlot_ = slot;
+    playProgress_ = measure >= 0 ? progress : 0.0f;
     for (int i = 0; i < static_cast<int>(measures_.size()); ++i)
-        measures_[static_cast<size_t>(i)]->setPlayingSlot(i == measure ? slot : -1);
+        measures_[static_cast<size_t>(i)]->setPlayingSlot(
+            i == measure ? slot : -1,
+            i == measure ? playProgress_ : 0.0f);
 }
 
 int SectionComponent::rowCount() const

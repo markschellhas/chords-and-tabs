@@ -8,6 +8,7 @@
 #include "gui/SectionListComponent.h"
 #include "gui/TransportStrip.h"
 #include "model/Song.h"
+#include "nav/RegionFocus.h"
 
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -28,7 +29,9 @@ public:
     ~MainComponent() override;
 
     void paint(juce::Graphics& g) override;
+    void paintOverChildren(juce::Graphics& g) override;
     void resized() override;
+    void mouseDown(const juce::MouseEvent& e) override;
     bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
     bool keyPressed(const juce::KeyPress& key) override { return keyPressed(key, this); }
     bool keyStateChanged(bool isKeyDown, juce::Component* originatingComponent) override;
@@ -39,6 +42,11 @@ private:
     void showDeviceDialog();
     void updateKeyboardHighlight();
     void publishAgentState();
+    void setNavRegion(NavRegion region);
+    void updateHint();
+    void cycleSound(int delta);
+    juce::Component* navComponent(NavRegion region);
+    static int vimLetter(const juce::KeyPress& key);
     static juce::File settingsDirectory();
     static juce::File settingsFile();
     static juce::File prefsFile();
@@ -54,7 +62,7 @@ private:
     AgentHttpServer agentServer_;
 
     juce::Label title_ { {}, "Chords & Tabs" };
-    juce::Label hint_ { {}, "Left / Right change key    drag onto a chord to split    drag edges to open slots    space plays" };
+    juce::Label hint_ { {}, "Left / Right change key    click a chord to hear it    drag onto a chord to split    drag edges to open slots    space plays" };
     TransportStrip transport_;
     CircleOfFifthsComponent circle_;
     SectionListComponent sections_;
@@ -62,6 +70,14 @@ private:
 
     std::optional<Chord> previewChord_;
     std::optional<Chord> selectedChord_;
+    int auditionSection_ = -1;
+    int auditionMeasure_ = -1;
+    int auditionSlot_ = -1;
+    double auditionStartMs_ = 0.0;
+    double auditionDurationMs_ = 0.0;
+    bool songPlayVisualActive_ = false;
+    double songPlayStartMs_ = 0.0;
+    NavRegion navRegion_ { NavRegion::Circle };
 };
 
 } // namespace chords

@@ -1,6 +1,9 @@
 #include "MainComponent.h"
 #include "api/AgentClient.h"
 #include "api/SongJson.h"
+#include "model/Timeline.h"
+
+#include <cmath>
 
 namespace chords
 {
@@ -59,16 +62,16 @@ MainComponent::MainComponent()
 
     title_.setJustificationType(juce::Justification::centred);
     title_.setFont(juce::Font(juce::FontOptions(22.0f).withStyle("Bold")));
-    hint_.setText("Left / Right change key    drag onto a chord to split    click :|| to repeat a row    space plays",
-                  juce::dontSendNotification);
     hint_.setJustificationType(juce::Justification::centred);
     hint_.setColour(juce::Label::textColourId, lookAndFeel_.muted());
     hint_.setFont(juce::Font(juce::FontOptions(13.0f)));
+    updateHint();
 
     transport_.onDevice = [this] { showDeviceDialog(); };
 
     circle_.onSelectionChanged = [this](int) {
         previewChord_.reset();
+        setNavRegion(NavRegion::Circle);
         updateKeyboardHighlight();
         grabKeyboardFocus();
         publishAgentState();
@@ -84,12 +87,36 @@ MainComponent::MainComponent()
 
     sections_.onSlotSelected = [this](int section, int measure, int slot) {
         selectedChord_ = song_.getChord(section, measure, slot);
+        setNavRegion(NavRegion::Song);
+        updateKeyboardHighlight();
+        grabKeyboardFocus();
+    };
+    sections_.onSlotAudition = [this](int section, int measure, int slot) {
+        const auto chord = song_.getChord(section, measure, slot);
+        if (! chord)
+            return;
+        const double beats = slotDurationBeats(song_, section, measure, slot);
+        if (beats <= 0.0)
+            return;
+        auditionSection_ = section;
+        auditionMeasure_ = measure;
+        auditionSlot_ = slot;
+        auditionDurationMs_ = juce::jmax(1.0, beats * 60000.0 / song_.bpm());
+        auditionStartMs_ = juce::Time::getMillisecondCounterHiRes();
+        selectedChord_ = chord;
+        engine_.playChord(*chord, beats);
         updateKeyboardHighlight();
         grabKeyboardFocus();
     };
 
     song_.addListener([this] {
         engine_.setSong(song_);
+        if (auditionSection_ >= 0
+            && ! song_.getChord(auditionSection_, auditionMeasure_, auditionSlot_))
+        {
+            auditionSection_ = -1;
+            engine_.cancelPreview();
+        }
         publishAgentState();
     });
 
@@ -98,9 +125,8 @@ MainComponent::MainComponent()
 
     piano_.setSoundName(engine_.instrumentName());
     piano_.onCycleSound = [this](int delta) {
-        engine_.cycleInstrument(delta);
-        piano_.setSoundName(engine_.instrumentName());
-        saveInstrumentPref();
+        setNavRegion(NavRegion::Keyboard);
+        cycleSound(delta);
         grabKeyboardFocus();
     };
     piano_.onNoteOn = [this](int midi) {
@@ -111,6 +137,8 @@ MainComponent::MainComponent()
         engine_.noteOff(midi);
     };
     piano_.onComputerKeyboardToggled = [this](bool enabled) {
+        setNavRegion(NavRegion::Keyboard);
+        updateHint();
         if (enabled)
             grabKeyboardFocus();
     };
@@ -122,7 +150,11 @@ MainComponent::MainComponent()
     addAndMakeVisible(sections_);
     addAndMakeVisible(piano_);
 
-    startTimerHz(30);
+    circle_.addMouseListener(this, true);
+    sections_.addMouseListener(this, true);
+    piano_.addMouseListener(this, true);
+
+    startTimerHz(60);
     setSize(1080, 820);
 }
 
@@ -132,6 +164,9 @@ MainComponent::~MainComponent()
     piano_.onNoteOff = nullptr;
     piano_.onComputerKeyboardToggled = nullptr;
     engine_.allLiveNotesOff();
+    circle_.removeMouseListener(this);
+    sections_.removeMouseListener(this);
+    piano_.removeMouseListener(this);
     agentServer_.stop();
     saveDeviceState();
     saveInstrumentPref();
@@ -195,7 +230,7 @@ void MainComponent::showDeviceDialog()
 
 void MainComponent::updateKeyboardHighlight()
 {
-    if (engine_.isPlaying() && engine_.hasSoundingNotes())
+    if ((engine_.isPlaying() || engine_.isPreviewing()) && engine_.hasSoundingNotes())
     {
         piano_.setHighlightedNotes(engine_.soundingNotes());
         return;
@@ -220,16 +255,60 @@ void MainComponent::timerCallback()
 {
     transport_.refresh();
 
-    const bool playing = engine_.isPlaying();
-    if (playing)
+    if (engine_.isPlaying())
     {
-        if (auto ev = engine_.currentEvent())
-            sections_.setPlayhead(ev->sectionIndex, ev->measureIndex, ev->slotIndex, ! ev->rest);
+        auditionSection_ = -1;
+        const double nowMs = juce::Time::getMillisecondCounterHiRes();
+        if (! songPlayVisualActive_)
+        {
+            songPlayVisualActive_ = true;
+            songPlayStartMs_ = nowMs;
+        }
+
+        if (auto ev = engine_.currentEvent(); ev && engine_.currentBeat() > 1.0e-6)
+        {
+            sections_.setPlayhead(ev->sectionIndex, ev->measureIndex, ev->slotIndex, ! ev->rest,
+                                  static_cast<float>(engine_.currentEventProgress()));
+        }
         else
-            sections_.setPlayhead(-1, -1, -1, false);
+        {
+            const auto events = buildTimeline(song_);
+            const double length = timelineLengthBeats(events);
+            const double wallBeats = (nowMs - songPlayStartMs_) * song_.bpm() / 60000.0;
+            const double beat = (engine_.isLooping() && length > 0.0)
+                ? std::fmod(wallBeats, length)
+                : wallBeats;
+            if (const auto* e = eventAt(events, beat))
+            {
+                const float progress = e->durationBeats > 0.0
+                    ? static_cast<float>(juce::jlimit(0.0, 1.0, (beat - e->startBeat) / e->durationBeats))
+                    : 0.0f;
+                sections_.setPlayhead(e->sectionIndex, e->measureIndex, e->slotIndex,
+                                      ! e->rest, progress);
+            }
+            else
+            {
+                sections_.setPlayhead(-1, -1, -1, false);
+            }
+        }
+    }
+    else if (auditionSection_ >= 0)
+    {
+        songPlayVisualActive_ = false;
+        const double elapsed = juce::Time::getMillisecondCounterHiRes() - auditionStartMs_;
+        const float progress = static_cast<float>(
+            juce::jlimit(0.0, 1.0, elapsed / juce::jmax(1.0, auditionDurationMs_)));
+        sections_.setPlayhead(auditionSection_, auditionMeasure_, auditionSlot_, true, progress);
+        if (elapsed >= auditionDurationMs_)
+        {
+            auditionSection_ = -1;
+            if (engine_.isPreviewing())
+                engine_.cancelPreview();
+        }
     }
     else
     {
+        songPlayVisualActive_ = false;
         sections_.setPlayhead(-1, -1, -1, false);
     }
 
@@ -239,6 +318,89 @@ void MainComponent::timerCallback()
 void MainComponent::paint(juce::Graphics& g)
 {
     g.fillAll(lookAndFeel_.background());
+}
+
+void MainComponent::paintOverChildren(juce::Graphics& g)
+{
+    if (auto* c = navComponent(navRegion_))
+        lookAndFeel_.drawNavFocusFrame(g, c->getBounds().toFloat());
+}
+
+void MainComponent::mouseDown(const juce::MouseEvent& e)
+{
+    auto* src = e.eventComponent;
+    if (src == nullptr)
+        return;
+
+    if (src == &circle_ || circle_.isParentOf(src))
+        setNavRegion(NavRegion::Circle);
+    else if (src == &sections_ || sections_.isParentOf(src))
+        setNavRegion(NavRegion::Song);
+    else if (src == &piano_ || piano_.isParentOf(src))
+        setNavRegion(NavRegion::Keyboard);
+}
+
+void MainComponent::setNavRegion(NavRegion region)
+{
+    const bool changed = navRegion_ != region;
+    navRegion_ = region;
+    if (changed)
+        updateHint();
+    grabKeyboardFocus();
+    if (changed)
+        repaint();
+}
+
+void MainComponent::updateHint()
+{
+    juce::String text;
+    switch (navRegion_)
+    {
+        case NavRegion::Circle:
+            text = "j/k move between areas    h/l or left/right change key    space plays";
+            break;
+        case NavRegion::Song:
+            text = "j/k move between areas    click a chord to hear it    space plays";
+            break;
+        case NavRegion::Keyboard:
+            text = piano_.isComputerKeyboardEnabled()
+                ? "laptop keys play notes (A=C)    Z/X octave    glyph toggles mapping    space plays"
+                : "j/k move between areas    h/l change sound    space plays";
+            break;
+    }
+    hint_.setText(text, juce::dontSendNotification);
+}
+
+void MainComponent::cycleSound(int delta)
+{
+    engine_.cycleInstrument(delta);
+    piano_.setSoundName(engine_.instrumentName());
+    saveInstrumentPref();
+}
+
+juce::Component* MainComponent::navComponent(NavRegion region)
+{
+    switch (region)
+    {
+        case NavRegion::Circle:   return &circle_;
+        case NavRegion::Song:     return &sections_;
+        case NavRegion::Keyboard: return &piano_;
+    }
+    return &circle_;
+}
+
+int MainComponent::vimLetter(const juce::KeyPress& key)
+{
+    const auto mods = key.getModifiers();
+    if (mods.isCommandDown() || mods.isCtrlDown() || mods.isAltDown())
+        return 0;
+
+    int raw = static_cast<int>(key.getTextCharacter());
+    if (raw == 0)
+        raw = key.getKeyCode();
+    if (raw >= 'A' && raw <= 'Z')
+        raw += 'a' - 'A';
+    return raw;
 }
 
 void MainComponent::resized()
@@ -281,6 +443,46 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component*)
     {
         circle_.rotate(1);
         return true;
+    }
+
+    const int ch = vimLetter(key);
+    if (ch == 'j')
+    {
+        setNavRegion(cycleNavRegion(navRegion_, 1));
+        return true;
+    }
+    if (ch == 'k')
+    {
+        setNavRegion(cycleNavRegion(navRegion_, -1));
+        return true;
+    }
+    if (ch == 'h')
+    {
+        if (navRegion_ == NavRegion::Circle)
+        {
+            circle_.rotate(-1);
+            return true;
+        }
+        if (navRegion_ == NavRegion::Keyboard)
+        {
+            cycleSound(-1);
+            return true;
+        }
+        return false;
+    }
+    if (ch == 'l')
+    {
+        if (navRegion_ == NavRegion::Circle)
+        {
+            circle_.rotate(1);
+            return true;
+        }
+        if (navRegion_ == NavRegion::Keyboard)
+        {
+            cycleSound(1);
+            return true;
+        }
+        return false;
     }
     return false;
 }

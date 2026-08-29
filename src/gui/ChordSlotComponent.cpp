@@ -1,5 +1,7 @@
 #include "gui/ChordSlotComponent.h"
 
+#include <cmath>
+
 namespace chords
 {
 
@@ -8,11 +10,13 @@ ChordSlotComponent::ChordSlotComponent(Song& song, int section, int measure, int
 {
 }
 
-void ChordSlotComponent::setPlaying(bool playing)
+void ChordSlotComponent::setPlaying(bool playing, float progress)
 {
-    if (playing_ == playing)
+    progress = juce::jlimit(0.0f, 1.0f, progress);
+    if (playing_ == playing && std::abs(progress_ - progress) < 0.004f)
         return;
     playing_ = playing;
+    progress_ = playing ? progress : 0.0f;
     repaint();
 }
 
@@ -98,14 +102,14 @@ void ChordSlotComponent::paint(juce::Graphics& g)
         const auto incomingR = splitAfter_ ? right : left;
 
         AppLookAndFeel::drawChordChip(g, existingR, name, true, playing_, false,
-                                      chip, chipText, accent, muted);
+                                      chip, chipText, accent, muted, progress_);
         AppLookAndFeel::drawChordChip(g, incomingR, incomingName_, true, false, true,
                                       chip, chipText, accent, muted);
     }
     else
     {
         AppLookAndFeel::drawChordChip(g, bounds, name, c.has_value(), playing_, dropHover_,
-                                      chip, chipText, accent, muted);
+                                      chip, chipText, accent, muted, progress_);
     }
 
     if (c.has_value() && hover_ && ! dropHover_)
@@ -160,6 +164,8 @@ void ChordSlotComponent::mouseDown(const juce::MouseEvent& e)
     }
     if (onSelected)
         onSelected();
+    if (! hoverClear_ && chord() && onAudition)
+        onAudition();
 }
 
 void ChordSlotComponent::mouseDrag(const juce::MouseEvent& e)
