@@ -5,6 +5,18 @@
 namespace chords
 {
 
+namespace
+{
+constexpr float kChipStripH = 56.0f;
+constexpr float kFanGapH = 6.0f;
+// Zoom the drawn circle so the existing clip box frames the active key
+// plus a sliver of its neighbours. The component height stays the same.
+constexpr float kCircleZoom = 2.75f;
+constexpr float kInnerInnerT = 0.28f;
+constexpr float kInnerOuterT = 0.62f;
+constexpr float kOuterInnerT = 0.66f;
+}
+
 void DiatonicChip::setChord(const Chord& chord, const juce::String& numeral)
 {
     chord_ = chord;
@@ -96,10 +108,17 @@ void CircleOfFifthsComponent::rebuildChips()
         chips_[static_cast<size_t>(i)].setChord(triads[static_cast<size_t>(i)], numerals[static_cast<size_t>(i)]);
 }
 
+juce::Rectangle<float> CircleOfFifthsComponent::fanBounds() const
+{
+    auto fan = getLocalBounds().toFloat();
+    fan.removeFromBottom(kChipStripH);
+    return fan;
+}
+
 void CircleOfFifthsComponent::resized()
 {
     auto r = getLocalBounds();
-    auto strip = r.removeFromBottom(56).reduced(12, 8);
+    auto strip = r.removeFromBottom(static_cast<int>(kChipStripH)).reduced(12, 8);
     const int chipW = juce::jmax(48, strip.getWidth() / 7);
     for (int i = 0; i < 7; ++i)
         chips_[static_cast<size_t>(i)].setBounds(strip.removeFromLeft(chipW).reduced(3, 2));
@@ -109,20 +128,33 @@ void CircleOfFifthsComponent::resized()
 void CircleOfFifthsComponent::rebuildWedges()
 {
     wedges_.clear();
-    auto fan = getLocalBounds().toFloat();
-    fan.removeFromBottom(56.0f);
-    fan.removeFromBottom(6.0f);
+    auto fan = fanBounds();
+    fan.removeFromBottom(kFanGapH);
     if (fan.getWidth() < 8.0f || fan.getHeight() < 8.0f)
         return;
 
-    centre_ = { fan.getCentreX(), fan.getBottom() };
-    outerRadius_ = juce::jmin(fan.getWidth() * 0.45f, fan.getHeight() * 0.98f);
-    const float innerOuter = outerRadius_ * 0.62f;
-    const float innerInner = outerRadius_ * 0.28f;
-    const float outerInner = outerRadius_ * 0.66f;
+    const float baseRadius = juce::jmin(fan.getWidth() * 0.45f, fan.getHeight() * 0.98f);
+    outerRadius_ = baseRadius * kCircleZoom;
+
+    // Sit the 12 o'clock rim near the top of the box; the rest of the
+    // larger circle hangs below and is clipped.
+    const float rimInset = juce::jmax(6.0f, fan.getHeight() * 0.05f);
+    centre_ = { fan.getCentreX(), fan.getY() + rimInset + outerRadius_ };
+
+    // If the zoom would push the minor ring off the bottom, remap the
+    // original 0.28–1.0 ring layout onto the visible radial band so the
+    // active key still shows major + relative minor.
+    const float visibleInner = juce::jmax(outerRadius_ * kInnerInnerT,
+                                          centre_.y - fan.getBottom() + 6.0f);
+    const float span = juce::jmax(8.0f, outerRadius_ - visibleInner);
+    auto mapR = [visibleInner, span](float t) {
+        return visibleInner + (t - kInnerInnerT) / (1.0f - kInnerInnerT) * span;
+    };
+    innerInner_ = visibleInner;
+    innerOuter_ = mapR(kInnerOuterT);
+    outerInner_ = mapR(kOuterInnerT);
 
     const float step = juce::MathConstants<float>::twoPi / static_cast<float>(CircleOfFifths::kCount);
-    const float fanHalf = juce::MathConstants<float>::halfPi * 1.08f;
 
     auto addRing = [&](float r0, float r1, bool inner) {
         for (int i = 0; i < CircleOfFifths::kCount; ++i)
@@ -140,17 +172,19 @@ void CircleOfFifthsComponent::rebuildWedges()
             w.inner = inner;
             w.chord = inner ? CircleOfFifths::minorChord(i) : CircleOfFifths::majorChord(i);
             w.midAngle = mid;
-            w.visible = std::abs(mid) <= fanHalf;
+            w.r0 = r0;
+            w.r1 = r1;
 
             w.path.addCentredArc(centre_.x, centre_.y, r1, r1, 0.0f, a0, a1, true);
             w.path.addCentredArc(centre_.x, centre_.y, r0, r0, 0.0f, a1, a0, false);
             w.path.closeSubPath();
+            w.visible = w.path.getBounds().intersects(fan);
             wedges_.push_back(std::move(w));
         }
     };
 
-    addRing(outerInner, outerRadius_, false);
-    addRing(innerInner, innerOuter, true);
+    addRing(outerInner_, outerRadius_, false);
+    addRing(innerInner_, innerOuter_, true);
 }
 
 void CircleOfFifthsComponent::timerCallback()
@@ -191,8 +225,7 @@ void CircleOfFifthsComponent::paint(juce::Graphics& g)
 
     g.fillAll(bg);
 
-    auto fan = getLocalBounds().toFloat();
-    fan.removeFromBottom(56.0f);
+    auto fan = fanBounds();
     g.saveState();
     g.reduceClipRegion(fan.toNearestInt());
 
@@ -202,7 +235,7 @@ void CircleOfFifthsComponent::paint(juce::Graphics& g)
             continue;
 
         const bool selected = w.index == selectedIndex_;
-        const float fade = juce::jlimit(0.35f, 1.0f, 1.0f - std::abs(w.midAngle) * 0.55f);
+        const float fade = juce::jlimit(0.4f, 1.0f, 1.0f - std::abs(w.midAngle) * 0.65f);
 
         juce::Colour fill = wedgeCol;
         if (selected)
@@ -211,19 +244,22 @@ void CircleOfFifthsComponent::paint(juce::Graphics& g)
         g.fillPath(w.path);
 
         g.setColour(bg.withAlpha(0.85f));
-        g.strokePath(w.path, juce::PathStrokeType(1.4f));
+        g.strokePath(w.path, juce::PathStrokeType(1.6f));
 
-        const float r0 = w.inner ? outerRadius_ * 0.28f : outerRadius_ * 0.66f;
-        const float r1 = w.inner ? outerRadius_ * 0.62f : outerRadius_;
-        const float midR = 0.5f * (r0 + r1);
+        const float midR = 0.5f * (w.r0 + w.r1);
         const auto pos = juce::Point<float>(centre_.x + std::sin(w.midAngle) * midR,
                                             centre_.y - std::cos(w.midAngle) * midR);
+        if (! fan.reduced(6.0f, 4.0f).contains(pos))
+            continue;
 
         g.setColour((selected ? juce::Colours::white : text).withMultipliedAlpha(fade));
-        const float fontH = w.inner ? 13.0f : 16.0f;
+        const float ringH = juce::jmax(12.0f, w.r1 - w.r0);
+        const float fontH = juce::jlimit(w.inner ? 14.0f : 17.0f, 30.0f, ringH * 0.42f);
+        const float labelW = juce::jmax(48.0f, ringH * 1.15f);
+        const float labelH = juce::jmax(22.0f, fontH + 8.0f);
         g.setFont(juce::Font(juce::FontOptions(fontH, selected ? juce::Font::bold : juce::Font::plain)));
         g.drawText(w.chord.name(),
-                   juce::Rectangle<float>(pos.x - 22.0f, pos.y - 10.0f, 44.0f, 20.0f),
+                   juce::Rectangle<float>(pos.x - labelW * 0.5f, pos.y - labelH * 0.5f, labelW, labelH),
                    juce::Justification::centred);
     }
 
