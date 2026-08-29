@@ -141,6 +141,10 @@ if(CHORDS_BUILD_TESTS)
     target_link_libraries(InstrumentsTest PRIVATE chords_core)
     add_test(NAME InstrumentsTest COMMAND InstrumentsTest)
 
+    add_executable(LaptopKeysTest tests/LaptopKeysTest.cpp)
+    target_link_libraries(LaptopKeysTest PRIVATE chords_core)
+    add_test(NAME LaptopKeysTest COMMAND LaptopKeysTest)
+
     add_executable(RegionFocusTest tests/RegionFocusTest.cpp)
     target_include_directories(RegionFocusTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
     add_test(NAME RegionFocusTest COMMAND RegionFocusTest)

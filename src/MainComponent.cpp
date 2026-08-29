@@ -129,6 +129,19 @@ MainComponent::MainComponent()
         cycleSound(delta);
         grabKeyboardFocus();
     };
+    piano_.onNoteOn = [this](int midi) {
+        engine_.noteOn(midi);
+        grabKeyboardFocus();
+    };
+    piano_.onNoteOff = [this](int midi) {
+        engine_.noteOff(midi);
+    };
+    piano_.onComputerKeyboardToggled = [this](bool enabled) {
+        setNavRegion(NavRegion::Keyboard);
+        updateHint();
+        if (enabled)
+            grabKeyboardFocus();
+    };
 
     addAndMakeVisible(title_);
     addAndMakeVisible(hint_);
@@ -147,6 +160,10 @@ MainComponent::MainComponent()
 
 MainComponent::~MainComponent()
 {
+    piano_.onNoteOn = nullptr;
+    piano_.onNoteOff = nullptr;
+    piano_.onComputerKeyboardToggled = nullptr;
+    engine_.allLiveNotesOff();
     circle_.removeMouseListener(this);
     sections_.removeMouseListener(this);
     piano_.removeMouseListener(this);
@@ -346,7 +363,9 @@ void MainComponent::updateHint()
             text = "j/k move between areas    click a chord to hear it    space plays";
             break;
         case NavRegion::Keyboard:
-            text = "j/k move between areas    h/l change sound    space plays";
+            text = piano_.isComputerKeyboardEnabled()
+                ? "laptop keys play notes (A=C)    Z/X octave    glyph toggles mapping    space plays"
+                : "j/k move between areas    h/l change sound    space plays";
             break;
     }
     hint_.setText(text, juce::dontSendNotification);
@@ -407,6 +426,9 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component*)
     if (dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr)
         return false;
 
+    if (piano_.handleComputerKeyPress(key))
+        return true;
+
     if (key == juce::KeyPress::spaceKey)
     {
         engine_.togglePlay();
@@ -463,6 +485,16 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component*)
         return false;
     }
     return false;
+}
+
+bool MainComponent::keyStateChanged(bool isKeyDown, juce::Component*)
+{
+    if (isKeyDown)
+        return false;
+    if (dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr)
+        return false;
+
+    return piano_.syncComputerKeyState();
 }
 
 } // namespace chords

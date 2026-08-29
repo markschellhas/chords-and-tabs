@@ -168,11 +168,13 @@ private:
 ChordEngine::ChordEngine()
 {
     synth_.addSound(new InstrumentSound());
-    for (int i = 0; i < 16; ++i)
+    for (int i = 0; i < 24; ++i)
         synth_.addVoice(new InstrumentVoice(instrument_));
 
     for (auto& n : notes_)
         n.store(-1, std::memory_order_relaxed);
+    for (auto& held : liveHeld_)
+        held.store(0, std::memory_order_relaxed);
 }
 
 void ChordEngine::setInstrument(Instrument instrument)
@@ -305,7 +307,64 @@ void ChordEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
 
 void ChordEngine::audioDeviceStopped()
 {
-    synth_.allNotesOff(1, false);
+    synth_.allNotesOff(0, false);
+}
+
+void ChordEngine::noteOn(int midiNote, float velocity)
+{
+    midiNote = juce::jlimit(0, 127, midiNote);
+    liveHeld_[static_cast<size_t>(midiNote)].store(1, std::memory_order_release);
+    const juce::ScopedLock sl(liveLock_);
+    pendingLive_.push_back({ midiNote, true, juce::jlimit(0.0f, 1.0f, velocity) });
+}
+
+void ChordEngine::noteOff(int midiNote)
+{
+    midiNote = juce::jlimit(0, 127, midiNote);
+    liveHeld_[static_cast<size_t>(midiNote)].store(0, std::memory_order_release);
+    const juce::ScopedLock sl(liveLock_);
+    pendingLive_.push_back({ midiNote, false, 0.0f });
+}
+
+void ChordEngine::allLiveNotesOff()
+{
+    const juce::ScopedLock sl(liveLock_);
+    for (int midi = 0; midi < 128; ++midi)
+    {
+        if (liveHeld_[static_cast<size_t>(midi)].exchange(0, std::memory_order_acq_rel) != 0)
+            pendingLive_.push_back({ midi, false, 0.0f });
+    }
+}
+
+bool ChordEngine::hasLiveNotes() const
+{
+    for (const auto& held : liveHeld_)
+        if (held.load(std::memory_order_acquire) != 0)
+            return true;
+    return false;
+}
+
+std::vector<int> ChordEngine::liveNotes() const
+{
+    std::vector<int> notes;
+    notes.reserve(8);
+    for (int midi = 0; midi < 128; ++midi)
+        if (liveHeld_[static_cast<size_t>(midi)].load(std::memory_order_acquire) != 0)
+            notes.push_back(midi);
+    return notes;
+}
+
+void ChordEngine::flushLiveNotes(juce::MidiBuffer& midi, int sampleOffset)
+{
+    const juce::ScopedLock sl(liveLock_);
+    for (const auto& cmd : pendingLive_)
+    {
+        if (cmd.on)
+            midi.addEvent(juce::MidiMessage::noteOn(kLiveMidiChannel, cmd.midi, cmd.velocity), sampleOffset);
+        else
+            midi.addEvent(juce::MidiMessage::noteOff(kLiveMidiChannel, cmd.midi), sampleOffset);
+    }
+    pendingLive_.clear();
 }
 
 void ChordEngine::allNotesOff(juce::MidiBuffer& midi, int sampleOffset)
@@ -468,6 +527,7 @@ void ChordEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
     }
 
     currentBeat_.store(beat, std::memory_order_release);
+    flushLiveNotes(midi, 0);
     synth_.renderNextBlock(buffer, midi, 0, numSamples);
 }
 

@@ -15,6 +15,7 @@ A JUCE song-builder: pick a key on the circle of fifths, drag diatonic (and neig
 - Default song: Verse + Chorus, **4/4**, **120 BPM**
 - Play the song; triad notes highlight on the keyboard
 - Cycle keyboard sounds (Piano, Electric Piano, Organ, Pad, Strings) with the chevrons above the keys
+- Click a piano key to hear that note; the keyboard-glyph toggle maps the laptop keys (A=C, W=C♯, …; Z/X octave)
 - Loop, BPM, and per-section time signature (4/4, 3/4, 2/4, 6/8)
 - Repeat sign at the end of each 4-bar row; toggle it to play that row twice
 
@@ -52,6 +53,10 @@ On first launch, **Device** → pick **JACK** (PipeWire) or **ALSA**.
 | h / l | Circle: previous / next key. Keyboard: previous / next sound |
 | ← / → | Rotate the circle of fifths |
 | Space | Play / stop |
+| Click a piano key | Play that note |
+| Keyboard glyph | Toggle laptop-key mapping (off by default) |
+| A W S E D F T G Y H J K O L P ; ' | Notes when mapping is on (A=C, W=C♯, …). These take over H/J/K/L from vim nav. |
+| Z / X | Octave down / up (when mapping is on) |
 | Keyboard chevrons | Previous / next sound |
 | Double-click section title | Rename |
 
