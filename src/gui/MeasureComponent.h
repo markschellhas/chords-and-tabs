@@ -16,7 +16,7 @@ class MeasureComponent : public juce::Component
 public:
     MeasureComponent(Song& song, int section, int measure);
 
-    void setPlayingSlot(int slotIndex);
+    void setPlayingSlot(int slotIndex, float progress = 0.0f);
     void rebuild();
     static constexpr int kHeight = 52;
 
@@ -24,6 +24,7 @@ public:
     void resized() override;
 
     std::function<void(int slot)> onSlotSelected;
+    std::function<void(int slot)> onSlotAudition;
 
 private:
     void syncSlots();
@@ -35,6 +36,7 @@ private:
     int section_ = 0;
     int measure_ = 0;
     int playingSlot_ = -1;
+    float playProgress_ = 0.0f;
     std::vector<std::unique_ptr<ChordSlotComponent>> slots_;
 };
 

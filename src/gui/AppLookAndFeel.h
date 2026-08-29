@@ -44,7 +44,8 @@ public:
                               const juce::String& name,
                               bool filled, bool playing, bool dropHover,
                               juce::Colour chip, juce::Colour chipText,
-                              juce::Colour accent, juce::Colour muted);
+                              juce::Colour accent, juce::Colour muted,
+                              float progress = 0.0f);
 
 private:
     juce::Colour bg_ { 0xff12141a };

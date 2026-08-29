@@ -52,7 +52,7 @@ private:
     AgentHttpServer agentServer_;
 
     juce::Label title_ { {}, "Chords & Tabs" };
-    juce::Label hint_ { {}, "Left / Right change key    drag onto a chord to split    drag edges to open slots    space plays" };
+    juce::Label hint_ { {}, "Left / Right change key    click a chord to hear it    drag onto a chord to split    drag edges to open slots    space plays" };
     TransportStrip transport_;
     CircleOfFifthsComponent circle_;
     SectionListComponent sections_;
@@ -60,6 +60,11 @@ private:
 
     std::optional<Chord> previewChord_;
     std::optional<Chord> selectedChord_;
+    int auditionSection_ = -1;
+    int auditionMeasure_ = -1;
+    int auditionSlot_ = -1;
+    double auditionStartMs_ = 0.0;
+    double auditionDurationMs_ = 0.0;
 };
 
 } // namespace chords

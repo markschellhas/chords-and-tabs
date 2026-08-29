@@ -11,11 +11,13 @@ MeasureComponent::MeasureComponent(Song& song, int section, int measure)
     rebuild();
 }
 
-void MeasureComponent::setPlayingSlot(int slotIndex)
+void MeasureComponent::setPlayingSlot(int slotIndex, float progress)
 {
     playingSlot_ = slotIndex;
+    playProgress_ = slotIndex >= 0 ? progress : 0.0f;
     for (int i = 0; i < static_cast<int>(slots_.size()); ++i)
-        slots_[static_cast<size_t>(i)]->setPlaying(i == playingSlot_);
+        slots_[static_cast<size_t>(i)]->setPlaying(i == playingSlot_,
+                                                  i == playingSlot_ ? playProgress_ : 0.0f);
 }
 
 void MeasureComponent::wireSlot(ChordSlotComponent& slot)
@@ -67,9 +69,13 @@ void MeasureComponent::syncSlots()
             if (onSlotSelected)
                 onSlotSelected(i);
         };
+        slots_[static_cast<size_t>(i)]->onAudition = [this, i] {
+            if (onSlotAudition)
+                onSlotAudition(i);
+        };
     }
 
-    setPlayingSlot(playingSlot_);
+    setPlayingSlot(playingSlot_, playProgress_);
     resized();
     repaint();
 }

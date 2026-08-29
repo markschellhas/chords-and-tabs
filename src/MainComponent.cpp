@@ -1,6 +1,7 @@
 #include "MainComponent.h"
 #include "api/AgentClient.h"
 #include "api/SongJson.h"
+#include "model/Timeline.h"
 
 namespace chords
 {
@@ -59,7 +60,7 @@ MainComponent::MainComponent()
 
     title_.setJustificationType(juce::Justification::centred);
     title_.setFont(juce::Font(juce::FontOptions(22.0f).withStyle("Bold")));
-    hint_.setText("Left / Right change key    drag onto a chord to split    drag edges to open slots    space plays",
+    hint_.setText("Left / Right change key    click a chord to hear it    drag onto a chord to split    drag edges to open slots    space plays",
                   juce::dontSendNotification);
     hint_.setJustificationType(juce::Justification::centred);
     hint_.setColour(juce::Label::textColourId, lookAndFeel_.muted());
@@ -87,9 +88,32 @@ MainComponent::MainComponent()
         updateKeyboardHighlight();
         grabKeyboardFocus();
     };
+    sections_.onSlotAudition = [this](int section, int measure, int slot) {
+        const auto chord = song_.getChord(section, measure, slot);
+        if (! chord)
+            return;
+        const double beats = slotDurationBeats(song_, section, measure, slot);
+        if (beats <= 0.0)
+            return;
+        auditionSection_ = section;
+        auditionMeasure_ = measure;
+        auditionSlot_ = slot;
+        auditionDurationMs_ = juce::jmax(1.0, beats * 60000.0 / song_.bpm());
+        auditionStartMs_ = juce::Time::getMillisecondCounterHiRes();
+        selectedChord_ = chord;
+        engine_.playChord(*chord, beats);
+        updateKeyboardHighlight();
+        grabKeyboardFocus();
+    };
 
     song_.addListener([this] {
         engine_.setSong(song_);
+        if (auditionSection_ >= 0
+            && ! song_.getChord(auditionSection_, auditionMeasure_, auditionSlot_))
+        {
+            auditionSection_ = -1;
+            engine_.cancelPreview();
+        }
         publishAgentState();
     });
 
@@ -111,7 +135,7 @@ MainComponent::MainComponent()
     addAndMakeVisible(sections_);
     addAndMakeVisible(piano_);
 
-    startTimerHz(30);
+    startTimerHz(60);
     setSize(1080, 820);
 }
 
@@ -180,7 +204,7 @@ void MainComponent::showDeviceDialog()
 
 void MainComponent::updateKeyboardHighlight()
 {
-    if (engine_.isPlaying() && engine_.hasSoundingNotes())
+    if ((engine_.isPlaying() || engine_.isPreviewing()) && engine_.hasSoundingNotes())
     {
         piano_.setHighlightedNotes(engine_.soundingNotes());
         return;
@@ -205,13 +229,27 @@ void MainComponent::timerCallback()
 {
     transport_.refresh();
 
-    const bool playing = engine_.isPlaying();
-    if (playing)
+    if (engine_.isPlaying())
     {
+        auditionSection_ = -1;
         if (auto ev = engine_.currentEvent())
-            sections_.setPlayhead(ev->sectionIndex, ev->measureIndex, ev->slotIndex, ! ev->rest);
+            sections_.setPlayhead(ev->sectionIndex, ev->measureIndex, ev->slotIndex, ! ev->rest,
+                                  static_cast<float>(engine_.currentEventProgress()));
         else
             sections_.setPlayhead(-1, -1, -1, false);
+    }
+    else if (auditionSection_ >= 0)
+    {
+        const double elapsed = juce::Time::getMillisecondCounterHiRes() - auditionStartMs_;
+        const float progress = static_cast<float>(
+            juce::jlimit(0.0, 1.0, elapsed / juce::jmax(1.0, auditionDurationMs_)));
+        sections_.setPlayhead(auditionSection_, auditionMeasure_, auditionSlot_, true, progress);
+        if (elapsed >= auditionDurationMs_)
+        {
+            auditionSection_ = -1;
+            if (engine_.isPreviewing())
+                engine_.cancelPreview();
+        }
     }
     else
     {

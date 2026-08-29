@@ -137,6 +137,22 @@ int main()
     if (splitTl[1].chord.name() != "G") fail("timeline new chord");
     if (std::abs(timelineLengthBeats(splitTl) - 32.0) > 1.0e-9) fail("split keeps 32 beats");
 
+    Song s8;
+    if (std::abs(slotDurationBeats(s8, 0, 0, 0) - 4.0) > 1.0e-9) fail("full bar 4 beats");
+    if (std::abs(slotDurationBeats(s8, 0, 1, 0) - 4.0) > 1.0e-9) fail("second bar 4 beats");
+    if (slotDurationBeats(s8, -1, 0, 0) != 0.0) fail("invalid section duration");
+    if (slotDurationBeats(s8, 0, 99, 0) != 0.0) fail("invalid measure duration");
+    s8.placeChord(0, 0, 0, CircleOfFifths::majorChord(1), true);
+    if (std::abs(slotDurationBeats(s8, 0, 0, 0) - 2.0) > 1.0e-9) fail("halved slot 2 beats");
+    if (std::abs(slotDurationBeats(s8, 0, 0, 1) - 2.0) > 1.0e-9) fail("inserted slot 2 beats");
+    const auto s8tl = buildTimeline(s8);
+    if (std::abs(s8tl[0].durationBeats - slotDurationBeats(s8, 0, 0, 0)) > 1.0e-9)
+        fail("slot helper matches timeline");
+
+    Song s9;
+    s9.setTimeSignature(0, { 3, 4 });
+    if (std::abs(slotDurationBeats(s9, 0, 0, 0) - 3.0) > 1.0e-9) fail("3/4 full bar 3 beats");
+
     if (failures == 0)
         std::cout << "SongModelTest: OK\n";
     return failures == 0 ? 0 : 1;
