@@ -59,16 +59,16 @@ MainComponent::MainComponent()
 
     title_.setJustificationType(juce::Justification::centred);
     title_.setFont(juce::Font(juce::FontOptions(22.0f).withStyle("Bold")));
-    hint_.setText("Left / Right change key    drag onto a chord to split    click :|| to repeat a row    space plays",
-                  juce::dontSendNotification);
     hint_.setJustificationType(juce::Justification::centred);
     hint_.setColour(juce::Label::textColourId, lookAndFeel_.muted());
     hint_.setFont(juce::Font(juce::FontOptions(13.0f)));
+    updateHint();
 
     transport_.onDevice = [this] { showDeviceDialog(); };
 
     circle_.onSelectionChanged = [this](int) {
         previewChord_.reset();
+        setNavRegion(NavRegion::Circle);
         updateKeyboardHighlight();
         grabKeyboardFocus();
         publishAgentState();
@@ -84,6 +84,7 @@ MainComponent::MainComponent()
 
     sections_.onSlotSelected = [this](int section, int measure, int slot) {
         selectedChord_ = song_.getChord(section, measure, slot);
+        setNavRegion(NavRegion::Song);
         updateKeyboardHighlight();
         grabKeyboardFocus();
     };
@@ -98,9 +99,8 @@ MainComponent::MainComponent()
 
     piano_.setSoundName(engine_.instrumentName());
     piano_.onCycleSound = [this](int delta) {
-        engine_.cycleInstrument(delta);
-        piano_.setSoundName(engine_.instrumentName());
-        saveInstrumentPref();
+        setNavRegion(NavRegion::Keyboard);
+        cycleSound(delta);
         grabKeyboardFocus();
     };
 
@@ -111,12 +111,19 @@ MainComponent::MainComponent()
     addAndMakeVisible(sections_);
     addAndMakeVisible(piano_);
 
+    circle_.addMouseListener(this, true);
+    sections_.addMouseListener(this, true);
+    piano_.addMouseListener(this, true);
+
     startTimerHz(30);
     setSize(1080, 820);
 }
 
 MainComponent::~MainComponent()
 {
+    circle_.removeMouseListener(this);
+    sections_.removeMouseListener(this);
+    piano_.removeMouseListener(this);
     agentServer_.stop();
     saveDeviceState();
     saveInstrumentPref();
@@ -226,6 +233,87 @@ void MainComponent::paint(juce::Graphics& g)
     g.fillAll(lookAndFeel_.background());
 }
 
+void MainComponent::paintOverChildren(juce::Graphics& g)
+{
+    if (auto* c = navComponent(navRegion_))
+        lookAndFeel_.drawNavFocusFrame(g, c->getBounds().toFloat());
+}
+
+void MainComponent::mouseDown(const juce::MouseEvent& e)
+{
+    auto* src = e.eventComponent;
+    if (src == nullptr)
+        return;
+
+    if (src == &circle_ || circle_.isParentOf(src))
+        setNavRegion(NavRegion::Circle);
+    else if (src == &sections_ || sections_.isParentOf(src))
+        setNavRegion(NavRegion::Song);
+    else if (src == &piano_ || piano_.isParentOf(src))
+        setNavRegion(NavRegion::Keyboard);
+}
+
+void MainComponent::setNavRegion(NavRegion region)
+{
+    const bool changed = navRegion_ != region;
+    navRegion_ = region;
+    if (changed)
+        updateHint();
+    grabKeyboardFocus();
+    if (changed)
+        repaint();
+}
+
+void MainComponent::updateHint()
+{
+    juce::String text;
+    switch (navRegion_)
+    {
+        case NavRegion::Circle:
+            text = "j/k move between areas    h/l or ←/→ change key    space plays";
+            break;
+        case NavRegion::Song:
+            text = "j/k move between areas    space plays";
+            break;
+        case NavRegion::Keyboard:
+            text = "j/k move between areas    h/l change sound    space plays";
+            break;
+    }
+    hint_.setText(text, juce::dontSendNotification);
+}
+
+void MainComponent::cycleSound(int delta)
+{
+    engine_.cycleInstrument(delta);
+    piano_.setSoundName(engine_.instrumentName());
+    saveInstrumentPref();
+}
+
+juce::Component* MainComponent::navComponent(NavRegion region)
+{
+    switch (region)
+    {
+        case NavRegion::Circle:   return &circle_;
+        case NavRegion::Song:     return &sections_;
+        case NavRegion::Keyboard: return &piano_;
+    }
+    return &circle_;
+}
+
+int MainComponent::vimLetter(const juce::KeyPress& key)
+{
+    const auto mods = key.getModifiers();
+    if (mods.isCommandDown() || mods.isCtrlDown() || mods.isAltDown())
+        return 0;
+
+    int raw = static_cast<int>(key.getTextCharacter());
+    if (raw == 0)
+        raw = key.getKeyCode();
+    if (raw >= 'A' && raw <= 'Z')
+        raw += 'a' - 'A';
+    return raw;
+}
+
 void MainComponent::resized()
 {
     auto r = getLocalBounds();
@@ -263,6 +351,46 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component*)
     {
         circle_.rotate(1);
         return true;
+    }
+
+    const int ch = vimLetter(key);
+    if (ch == 'j')
+    {
+        setNavRegion(cycleNavRegion(navRegion_, 1));
+        return true;
+    }
+    if (ch == 'k')
+    {
+        setNavRegion(cycleNavRegion(navRegion_, -1));
+        return true;
+    }
+    if (ch == 'h')
+    {
+        if (navRegion_ == NavRegion::Circle)
+        {
+            circle_.rotate(-1);
+            return true;
+        }
+        if (navRegion_ == NavRegion::Keyboard)
+        {
+            cycleSound(-1);
+            return true;
+        }
+        return false;
+    }
+    if (ch == 'l')
+    {
+        if (navRegion_ == NavRegion::Circle)
+        {
+            circle_.rotate(1);
+            return true;
+        }
+        if (navRegion_ == NavRegion::Keyboard)
+        {
+            cycleSound(1);
+            return true;
+        }
+        return false;
     }
     return false;
 }
