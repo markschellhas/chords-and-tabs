@@ -103,6 +103,17 @@ MainComponent::MainComponent()
         saveInstrumentPref();
         grabKeyboardFocus();
     };
+    piano_.onNoteOn = [this](int midi) {
+        engine_.noteOn(midi);
+        grabKeyboardFocus();
+    };
+    piano_.onNoteOff = [this](int midi) {
+        engine_.noteOff(midi);
+    };
+    piano_.onComputerKeyboardToggled = [this](bool enabled) {
+        if (enabled)
+            grabKeyboardFocus();
+    };
 
     addAndMakeVisible(title_);
     addAndMakeVisible(hint_);
@@ -117,6 +128,10 @@ MainComponent::MainComponent()
 
 MainComponent::~MainComponent()
 {
+    piano_.onNoteOn = nullptr;
+    piano_.onNoteOff = nullptr;
+    piano_.onComputerKeyboardToggled = nullptr;
+    engine_.allLiveNotesOff();
     agentServer_.stop();
     saveDeviceState();
     saveInstrumentPref();
@@ -249,6 +264,9 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component*)
     if (dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr)
         return false;
 
+    if (piano_.handleComputerKeyPress(key))
+        return true;
+
     if (key == juce::KeyPress::spaceKey)
     {
         engine_.togglePlay();
@@ -265,6 +283,14 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component*)
         return true;
     }
     return false;
+}
+
+bool MainComponent::keyStateChanged(bool, juce::Component*)
+{
+    if (dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr)
+        return false;
+
+    return piano_.syncComputerKeyState();
 }
 
 } // namespace chords

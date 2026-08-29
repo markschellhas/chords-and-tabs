@@ -10,6 +10,7 @@
 #include <array>
 #include <atomic>
 #include <optional>
+#include <vector>
 
 namespace chords
 {
@@ -42,6 +43,12 @@ public:
     Instrument instrument() const;
     const char* instrumentName() const;
 
+    void noteOn(int midiNote, float velocity = 0.78f);
+    void noteOff(int midiNote);
+    void allLiveNotesOff();
+    bool hasLiveNotes() const;
+    std::vector<int> liveNotes() const;
+
     void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
                                           int numInputChannels,
                                           float* const* outputChannelData,
@@ -56,6 +63,9 @@ private:
     void allNotesOff(juce::MidiBuffer& midi, int sampleOffset);
     void startChord(const Chord& chord, juce::MidiBuffer& midi, int sampleOffset);
     void applyEvent(const PlayEvent* event, juce::MidiBuffer& midi, int sampleOffset);
+    void flushLiveNotes(juce::MidiBuffer& midi, int sampleOffset);
+
+    static constexpr int kLiveMidiChannel = 2;
 
     std::atomic<int> instrument_ { static_cast<int>(Instrument::Piano) };
     juce::Synthesiser synth_;
@@ -72,6 +82,16 @@ private:
     std::atomic<int> sounding_ { 0 }; // packed? we'll keep an array behind the lock for event
     std::array<std::atomic<int>, 3> notes_;
     std::atomic<bool> retrigger_ { false };
+
+    juce::CriticalSection liveLock_;
+    struct LiveCommand
+    {
+        int midi = 0;
+        bool on = false;
+        float velocity = 0.78f;
+    };
+    std::vector<LiveCommand> pendingLive_;
+    std::array<std::atomic<int>, 128> liveHeld_ {};
 
     int lastSection_ = -1;
     int lastMeasure_ = -1;

@@ -31,6 +31,8 @@ public:
     void resized() override;
     bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
     bool keyPressed(const juce::KeyPress& key) override { return keyPressed(key, this); }
+    bool keyStateChanged(bool isKeyDown, juce::Component* originatingComponent) override;
+    bool keyStateChanged(bool isKeyDown) override { return keyStateChanged(isKeyDown, this); }
 
 private:
     void timerCallback() override;
