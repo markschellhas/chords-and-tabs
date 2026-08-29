@@ -45,14 +45,25 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# Core (no GUI) — theory, song, timeline
+# Core (no GUI) — theory, song, timeline, agent API
 # ---------------------------------------------------------------------------
 add_library(chords_core STATIC
     src/theory/MusicTheory.cpp
     src/model/Song.cpp
     src/model/Timeline.cpp
+    src/api/SongJson.cpp
+    src/api/AgentHttpServer.cpp
+    src/api/AgentClient.cpp
 )
 target_include_directories(chords_core PUBLIC ${CMAKE_SOURCE_DIR}/src)
+find_package(Threads REQUIRED)
+target_link_libraries(chords_core PUBLIC Threads::Threads)
+
+# ---------------------------------------------------------------------------
+# Agent CLI (no GUI) — any command-running agent can call this
+# ---------------------------------------------------------------------------
+add_executable(chords-agent src/cli/chords-agent.cpp)
+target_link_libraries(chords-agent PRIVATE chords_core)
 
 # ---------------------------------------------------------------------------
 # GUI application
@@ -121,10 +132,15 @@ if(CHORDS_BUILD_TESTS)
     add_executable(SongModelTest tests/SongModelTest.cpp)
     target_link_libraries(SongModelTest PRIVATE chords_core)
     add_test(NAME SongModelTest COMMAND SongModelTest)
+
+    add_executable(AgentApiTest tests/AgentApiTest.cpp)
+    target_link_libraries(AgentApiTest PRIVATE chords_core)
+    add_test(NAME AgentApiTest COMMAND AgentApiTest)
 endif()
 
 if(APPLE)
     install(TARGETS chords_and_tabs BUNDLE DESTINATION "." RUNTIME DESTINATION bin)
+    install(TARGETS chords-agent RUNTIME DESTINATION bin)
 else()
-    install(TARGETS chords_and_tabs RUNTIME DESTINATION bin)
+    install(TARGETS chords_and_tabs chords-agent RUNTIME DESTINATION bin)
 endif()

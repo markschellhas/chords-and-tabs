@@ -34,6 +34,7 @@ cmake --build build -j"$(nproc)"
 
 ```bash
 ./build/chords_and_tabs_artefacts/Release/chords-and-tabs
+./build/chords-agent progressions
 ctest --test-dir build --output-on-failure
 ```
 
@@ -48,6 +49,22 @@ On first launch, **Device** → pick **JACK** (PipeWire) or **ALSA**.
 | Double-click section title | Rename |
 
 Drag from the circle or the roman-numeral chips onto a bar. Hover the × on a filled chip to clear it. **Edit** on a section changes its time signature (and bar count) or renames it. **+ Append Section** adds another section.
+
+## Agent CLI
+
+Any agent that can run a command can read the live song — no guesswork from the starter progression:
+
+```bash
+chords-agent progressions
+```
+
+| Command | Purpose |
+|---------|---------|
+| `chords-agent progressions` | Chords that have been added, by section |
+| `chords-agent song` | Full song, empty slots as `null` |
+| `chords-agent health` | App is up (exit 0) or not (exit 2) |
+
+The CLI prefers the running app (`127.0.0.1:17891`, override with `CHORDS_AGENT_PORT`), then the last snapshot in `~/.config/chords-and-tabs/`. See `AGENTS.md`.
 
 ## License
 

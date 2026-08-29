@@ -1,5 +1,6 @@
 #pragma once
 
+#include "api/AgentHttpServer.h"
 #include "audio/ChordEngine.h"
 #include "gui/AppLookAndFeel.h"
 #include "gui/CircleOfFifthsComponent.h"
@@ -12,6 +13,7 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 
 #include <optional>
+#include <string>
 
 namespace chords
 {
@@ -34,6 +36,8 @@ private:
     void timerCallback() override;
     void showDeviceDialog();
     void updateKeyboardHighlight();
+    void publishAgentState();
+    static juce::File settingsDirectory();
     static juce::File settingsFile();
     void loadDeviceState();
     void saveDeviceState();
@@ -42,6 +46,7 @@ private:
     juce::AudioDeviceManager deviceManager_;
     Song song_;
     ChordEngine engine_;
+    AgentHttpServer agentServer_;
 
     juce::Label title_ { {}, "Chords & Tabs" };
     juce::Label hint_ { {}, "Left / Right change key    drag chords onto bars    space plays" };
