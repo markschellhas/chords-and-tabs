@@ -47,8 +47,8 @@ ChordSlotComponent::Edge ChordSlotComponent::hitEdge(juce::Point<float> p) const
         return Edge::None;
 
     auto r = getLocalBounds().toFloat();
-    const float grip = juce::jmin(10.0f, r.getWidth() * 0.25f);
-    if (grip < 4.0f)
+    const float grip = juce::jmax(12.0f, r.getWidth() * 0.33f);
+    if (r.getWidth() < 16.0f)
         return Edge::None;
     if (p.x <= r.getX() + grip)
         return Edge::Left;
