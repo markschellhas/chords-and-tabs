@@ -221,11 +221,14 @@ void ChordEngine::setLooping(bool shouldLoop)
 
 void ChordEngine::play()
 {
+    cancelPreview();
     playing_.store(true, std::memory_order_release);
+    retrigger_.store(true, std::memory_order_release);
 }
 
 void ChordEngine::stop()
 {
+    cancelPreview();
     playing_.store(false, std::memory_order_release);
     currentBeat_.store(0.0, std::memory_order_release);
 }
@@ -236,6 +239,45 @@ void ChordEngine::togglePlay()
         stop();
     else
         play();
+}
+
+void ChordEngine::playChord(const Chord& chord, double durationBeats)
+{
+    const juce::ScopedLock sl(lock_);
+    playing_.store(false, std::memory_order_release);
+    currentBeat_.store(0.0, std::memory_order_release);
+    previewChord_ = chord;
+    previewDuration_.store(std::max(1.0e-6, durationBeats), std::memory_order_release);
+    previewBeat_.store(0.0, std::memory_order_release);
+    previewRetrigger_ = true;
+    previewing_.store(true, std::memory_order_release);
+}
+
+void ChordEngine::cancelPreview()
+{
+    const juce::ScopedLock sl(lock_);
+    previewing_.store(false, std::memory_order_release);
+    previewBeat_.store(0.0, std::memory_order_release);
+    previewRetrigger_ = false;
+}
+
+double ChordEngine::previewProgress() const
+{
+    const double duration = previewDuration_.load(std::memory_order_acquire);
+    if (duration <= 0.0)
+        return 0.0;
+    const double beat = previewBeat_.load(std::memory_order_acquire);
+    return std::clamp(beat / duration, 0.0, 1.0);
+}
+
+double ChordEngine::currentEventProgress() const
+{
+    const juce::ScopedLock sl(lock_);
+    const auto beat = currentBeat_.load(std::memory_order_acquire);
+    const auto* e = eventAt(events_, beat);
+    if (e == nullptr || e->durationBeats <= 0.0)
+        return 0.0;
+    return std::clamp((beat - e->startBeat) / e->durationBeats, 0.0, 1.0);
 }
 
 std::optional<PlayEvent> ChordEngine::currentEvent() const
@@ -288,6 +330,29 @@ void ChordEngine::startChord(const Chord& chord, juce::MidiBuffer& midi, int sam
         ++count;
     }
     numSounding_.store(count, std::memory_order_release);
+}
+
+void ChordEngine::applyPreview(juce::MidiBuffer& midi, int numSamples, double beatsPerSample)
+{
+    if (previewRetrigger_)
+    {
+        allNotesOff(midi, 0);
+        startChord(previewChord_, midi, 0);
+        previewRetrigger_ = false;
+        lastSection_ = lastMeasure_ = lastSlot_ = lastRepeatPass_ = -1;
+        lastRest_ = true;
+    }
+
+    double beat = previewBeat_.load(std::memory_order_acquire);
+    beat += static_cast<double>(numSamples) * beatsPerSample;
+    const double duration = previewDuration_.load(std::memory_order_acquire);
+    if (beat >= duration)
+    {
+        allNotesOff(midi, std::max(0, numSamples - 1));
+        previewing_.store(false, std::memory_order_release);
+        beat = duration;
+    }
+    previewBeat_.store(beat, std::memory_order_release);
 }
 
 void ChordEngine::applyEvent(const PlayEvent* event, juce::MidiBuffer& midi, int sampleOffset)
@@ -349,11 +414,17 @@ void ChordEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
 
         if (retrigger_.exchange(false, std::memory_order_acq_rel))
         {
-            lastSection_ = lastMeasure_ = lastSlot_ = -1;
+            lastSection_ = lastMeasure_ = lastSlot_ = lastRepeatPass_ = -1;
             lastRest_ = true;
         }
 
-        if (! playing)
+        const bool previewing = previewing_.load(std::memory_order_acquire);
+        if (previewing)
+        {
+            applyPreview(midi, numSamples, beatsPerSample);
+            beat = currentBeat_.load(std::memory_order_acquire);
+        }
+        else if (! playing)
         {
             applyEvent(nullptr, midi, 0);
             beat = currentBeat_.load(std::memory_order_acquire);

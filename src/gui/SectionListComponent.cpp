@@ -73,24 +73,30 @@ void SectionListComponent::rebuild()
             if (onSlotSelected)
                 onSlotSelected(i, measure, slot);
         };
+        s->onSlotAudition = [this, i](int measure, int slot) {
+            if (onSlotAudition)
+                onSlotAudition(i, measure, slot);
+        };
         content_.addAndMakeVisible(*s);
         sections_.push_back(std::move(s));
     }
     content_.addAndMakeVisible(addSection_);
-    setPlayhead(playSection_, playMeasure_, playSlot_, playing_);
+    setPlayhead(playSection_, playMeasure_, playSlot_, playing_, playProgress_);
     resized();
 }
 
-void SectionListComponent::setPlayhead(int section, int measure, int slot, bool playing)
+void SectionListComponent::setPlayhead(int section, int measure, int slot, bool playing, float progress)
 {
     playSection_ = section;
     playMeasure_ = measure;
     playSlot_ = slot;
     playing_ = playing;
+    playProgress_ = playing ? progress : 0.0f;
     for (int i = 0; i < static_cast<int>(sections_.size()); ++i)
         sections_[static_cast<size_t>(i)]->setPlayhead(
             playing && i == section ? measure : -1,
-            playing && i == section ? slot : -1);
+            playing && i == section ? slot : -1,
+            playing && i == section ? playProgress_ : 0.0f);
 }
 
 void SectionListComponent::lookAndFeelChanged()

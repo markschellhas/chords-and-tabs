@@ -1,6 +1,9 @@
 #include "MainComponent.h"
 #include "api/AgentClient.h"
 #include "api/SongJson.h"
+#include "model/Timeline.h"
+
+#include <cmath>
 
 namespace chords
 {
@@ -88,9 +91,32 @@ MainComponent::MainComponent()
         updateKeyboardHighlight();
         grabKeyboardFocus();
     };
+    sections_.onSlotAudition = [this](int section, int measure, int slot) {
+        const auto chord = song_.getChord(section, measure, slot);
+        if (! chord)
+            return;
+        const double beats = slotDurationBeats(song_, section, measure, slot);
+        if (beats <= 0.0)
+            return;
+        auditionSection_ = section;
+        auditionMeasure_ = measure;
+        auditionSlot_ = slot;
+        auditionDurationMs_ = juce::jmax(1.0, beats * 60000.0 / song_.bpm());
+        auditionStartMs_ = juce::Time::getMillisecondCounterHiRes();
+        selectedChord_ = chord;
+        engine_.playChord(*chord, beats);
+        updateKeyboardHighlight();
+        grabKeyboardFocus();
+    };
 
     song_.addListener([this] {
         engine_.setSong(song_);
+        if (auditionSection_ >= 0
+            && ! song_.getChord(auditionSection_, auditionMeasure_, auditionSlot_))
+        {
+            auditionSection_ = -1;
+            engine_.cancelPreview();
+        }
         publishAgentState();
     });
 
@@ -115,7 +141,7 @@ MainComponent::MainComponent()
     sections_.addMouseListener(this, true);
     piano_.addMouseListener(this, true);
 
-    startTimerHz(30);
+    startTimerHz(60);
     setSize(1080, 820);
 }
 
@@ -187,7 +213,7 @@ void MainComponent::showDeviceDialog()
 
 void MainComponent::updateKeyboardHighlight()
 {
-    if (engine_.isPlaying() && engine_.hasSoundingNotes())
+    if ((engine_.isPlaying() || engine_.isPreviewing()) && engine_.hasSoundingNotes())
     {
         piano_.setHighlightedNotes(engine_.soundingNotes());
         return;
@@ -212,16 +238,60 @@ void MainComponent::timerCallback()
 {
     transport_.refresh();
 
-    const bool playing = engine_.isPlaying();
-    if (playing)
+    if (engine_.isPlaying())
     {
-        if (auto ev = engine_.currentEvent())
-            sections_.setPlayhead(ev->sectionIndex, ev->measureIndex, ev->slotIndex, ! ev->rest);
+        auditionSection_ = -1;
+        const double nowMs = juce::Time::getMillisecondCounterHiRes();
+        if (! songPlayVisualActive_)
+        {
+            songPlayVisualActive_ = true;
+            songPlayStartMs_ = nowMs;
+        }
+
+        if (auto ev = engine_.currentEvent(); ev && engine_.currentBeat() > 1.0e-6)
+        {
+            sections_.setPlayhead(ev->sectionIndex, ev->measureIndex, ev->slotIndex, ! ev->rest,
+                                  static_cast<float>(engine_.currentEventProgress()));
+        }
         else
-            sections_.setPlayhead(-1, -1, -1, false);
+        {
+            const auto events = buildTimeline(song_);
+            const double length = timelineLengthBeats(events);
+            const double wallBeats = (nowMs - songPlayStartMs_) * song_.bpm() / 60000.0;
+            const double beat = (engine_.isLooping() && length > 0.0)
+                ? std::fmod(wallBeats, length)
+                : wallBeats;
+            if (const auto* e = eventAt(events, beat))
+            {
+                const float progress = e->durationBeats > 0.0
+                    ? static_cast<float>(juce::jlimit(0.0, 1.0, (beat - e->startBeat) / e->durationBeats))
+                    : 0.0f;
+                sections_.setPlayhead(e->sectionIndex, e->measureIndex, e->slotIndex,
+                                      ! e->rest, progress);
+            }
+            else
+            {
+                sections_.setPlayhead(-1, -1, -1, false);
+            }
+        }
+    }
+    else if (auditionSection_ >= 0)
+    {
+        songPlayVisualActive_ = false;
+        const double elapsed = juce::Time::getMillisecondCounterHiRes() - auditionStartMs_;
+        const float progress = static_cast<float>(
+            juce::jlimit(0.0, 1.0, elapsed / juce::jmax(1.0, auditionDurationMs_)));
+        sections_.setPlayhead(auditionSection_, auditionMeasure_, auditionSlot_, true, progress);
+        if (elapsed >= auditionDurationMs_)
+        {
+            auditionSection_ = -1;
+            if (engine_.isPreviewing())
+                engine_.cancelPreview();
+        }
     }
     else
     {
+        songPlayVisualActive_ = false;
         sections_.setPlayhead(-1, -1, -1, false);
     }
 
@@ -273,7 +343,7 @@ void MainComponent::updateHint()
             text = "j/k move between areas    h/l or left/right change key    space plays";
             break;
         case NavRegion::Song:
-            text = "j/k move between areas    space plays";
+            text = "j/k move between areas    click a chord to hear it    space plays";
             break;
         case NavRegion::Keyboard:
             text = "j/k move between areas    h/l change sound    space plays";

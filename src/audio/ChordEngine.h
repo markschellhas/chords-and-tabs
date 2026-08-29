@@ -30,8 +30,15 @@ public:
     void togglePlay();
     bool isPlaying() const { return playing_.load(std::memory_order_acquire); }
 
+    /** Audition one chord for `durationBeats` at the current BPM. Stops song playback. */
+    void playChord(const Chord& chord, double durationBeats);
+    void cancelPreview();
+    bool isPreviewing() const { return previewing_.load(std::memory_order_acquire); }
+    double previewProgress() const;
+
     double currentBeat() const { return currentBeat_.load(std::memory_order_acquire); }
     std::optional<PlayEvent> currentEvent() const;
+    double currentEventProgress() const;
     std::array<int, 3> soundingNotes() const;
     bool hasSoundingNotes() const { return numSounding_.load(std::memory_order_acquire) > 0; }
 
@@ -56,6 +63,7 @@ private:
     void allNotesOff(juce::MidiBuffer& midi, int sampleOffset);
     void startChord(const Chord& chord, juce::MidiBuffer& midi, int sampleOffset);
     void applyEvent(const PlayEvent* event, juce::MidiBuffer& midi, int sampleOffset);
+    void applyPreview(juce::MidiBuffer& midi, int numSamples, double beatsPerSample);
 
     std::atomic<int> instrument_ { static_cast<int>(Instrument::Piano) };
     juce::Synthesiser synth_;
@@ -72,6 +80,12 @@ private:
     std::atomic<int> sounding_ { 0 }; // packed? we'll keep an array behind the lock for event
     std::array<std::atomic<int>, 3> notes_;
     std::atomic<bool> retrigger_ { false };
+
+    std::atomic<bool> previewing_ { false };
+    std::atomic<double> previewBeat_ { 0.0 };
+    std::atomic<double> previewDuration_ { 0.0 };
+    Chord previewChord_ {};
+    bool previewRetrigger_ = false;
 
     int lastSection_ = -1;
     int lastMeasure_ = -1;

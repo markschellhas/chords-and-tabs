@@ -33,7 +33,7 @@ public:
     SectionComponent(Song& song, int sectionIndex);
 
     void rebuild();
-    void setPlayhead(int measure, int slot);
+    void setPlayhead(int measure, int slot, float progress = 0.0f);
     int preferredHeight(int width) const;
     static constexpr int kHeaderH = 36;
     static constexpr int kChordH = MeasureComponent::kHeight;
@@ -45,6 +45,7 @@ public:
     void lookAndFeelChanged() override;
 
     std::function<void(int measure, int slot)> onSlotSelected;
+    std::function<void(int measure, int slot)> onSlotAudition;
 
 private:
     void showMoreMenu();
@@ -59,6 +60,7 @@ private:
     int sectionIndex_ = 0;
     int playingMeasure_ = -1;
     int playingSlot_ = -1;
+    float playProgress_ = 0.0f;
 
     MoreButton more_;
     juce::Label name_;
