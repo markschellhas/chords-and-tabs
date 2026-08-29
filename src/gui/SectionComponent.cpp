@@ -46,7 +46,7 @@ void RepeatSignButton::paintButton(juce::Graphics& g, bool highlighted, bool dow
     auto* look = dynamic_cast<AppLookAndFeel*>(&getLookAndFeel());
     const auto muted = look != nullptr ? look->muted() : juce::Colour(0xff8a8694);
     const auto play = look != nullptr ? look->play() : juce::Colour(0xff6fbf9a);
-    const auto text = look != nullptr ? look->text() : juce::Colour(0xffe8e4da);
+    const auto ink = look != nullptr ? look->text() : juce::Colour(0xffe8e4da);
     const bool on = getToggleState();
 
     auto bounds = getLocalBounds().toFloat().reduced(1.0f);
@@ -61,7 +61,7 @@ void RepeatSignButton::paintButton(juce::Graphics& g, bool highlighted, bool dow
 
     auto colour = on ? play : muted;
     if (highlighted && ! on)
-        colour = text.withAlpha(0.75f);
+        colour = ink.withAlpha(0.75f);
     else if (highlighted)
         colour = play.brighter(0.12f);
 
