@@ -9,9 +9,6 @@ namespace
 {
 constexpr float kChipStripH = 56.0f;
 constexpr float kFanGapH = 6.0f;
-// Zoom the drawn circle so the existing clip box frames the active key
-// plus a sliver of its neighbours. The component height stays the same.
-constexpr float kCircleZoom = 2.75f;
 constexpr float kInnerInnerT = 0.28f;
 constexpr float kInnerOuterT = 0.62f;
 constexpr float kOuterInnerT = 0.66f;
@@ -133,12 +130,14 @@ void CircleOfFifthsComponent::rebuildWedges()
     if (fan.getWidth() < 8.0f || fan.getHeight() < 8.0f)
         return;
 
-    const float baseRadius = juce::jmin(fan.getWidth() * 0.45f, fan.getHeight() * 0.98f);
-    outerRadius_ = baseRadius * kCircleZoom;
-
-    // Sit the 12 o'clock rim near the top of the box; the rest of the
-    // larger circle hangs below and is clipped.
+    // Size a much larger circle so the same-height clip box is a circular
+    // segment: the 12 o'clock rim sits near the top, the chord at the
+    // bottom spans the panel, and only the active key plus a sliver of
+    // its neighbours stay in frame.
     const float rimInset = juce::jmax(6.0f, fan.getHeight() * 0.05f);
+    const float rise = juce::jmax(8.0f, fan.getHeight() - rimInset);
+    const float halfW = juce::jmax(8.0f, fan.getWidth() * 0.5f - 10.0f);
+    outerRadius_ = (halfW * halfW + rise * rise) / (2.0f * rise);
     centre_ = { fan.getCentreX(), fan.getY() + rimInset + outerRadius_ };
 
     // If the zoom would push the minor ring off the bottom, remap the
