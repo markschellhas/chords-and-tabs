@@ -58,12 +58,15 @@ private:
         bool inner = false;
         Chord chord;
         float midAngle = 0.0f;
+        float r0 = 0.0f;
+        float r1 = 0.0f;
         bool visible = false;
     };
 
     void timerCallback() override;
     void rebuildWedges();
     void rebuildChips();
+    juce::Rectangle<float> fanBounds() const;
     int hitWedge(juce::Point<float> p) const;
     void startChordDrag(const Chord& chord, juce::Component* source);
     AppLookAndFeel* laf() const;
@@ -75,6 +78,9 @@ private:
     std::vector<Wedge> wedges_;
     juce::Point<float> centre_;
     float outerRadius_ = 1.0f;
+    float innerInner_ = 0.28f;
+    float innerOuter_ = 0.62f;
+    float outerInner_ = 0.66f;
     std::array<DiatonicChip, 7> chips_;
 };
 
