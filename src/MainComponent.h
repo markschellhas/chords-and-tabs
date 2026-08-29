@@ -65,6 +65,8 @@ private:
     int auditionSlot_ = -1;
     double auditionStartMs_ = 0.0;
     double auditionDurationMs_ = 0.0;
+    bool songPlayVisualActive_ = false;
+    double songPlayStartMs_ = 0.0;
 };
 
 } // namespace chords

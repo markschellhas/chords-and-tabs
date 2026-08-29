@@ -130,7 +130,7 @@ void AppLookAndFeel::drawChordChip(juce::Graphics& g, juce::Rectangle<float> bou
             g.fillRect(bounds);
             if (p > 0.0f)
             {
-                g.setColour(chip.darker(0.45f));
+                g.setColour(chip.overlaidWith(juce::Colours::black.withAlpha(0.5f)));
                 g.fillRect(bounds.withWidth(bounds.getWidth() * p));
             }
         }

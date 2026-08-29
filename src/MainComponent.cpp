@@ -3,6 +3,8 @@
 #include "api/SongJson.h"
 #include "model/Timeline.h"
 
+#include <cmath>
+
 namespace chords
 {
 
@@ -232,14 +234,43 @@ void MainComponent::timerCallback()
     if (engine_.isPlaying())
     {
         auditionSection_ = -1;
-        if (auto ev = engine_.currentEvent())
+        const double nowMs = juce::Time::getMillisecondCounterHiRes();
+        if (! songPlayVisualActive_)
+        {
+            songPlayVisualActive_ = true;
+            songPlayStartMs_ = nowMs;
+        }
+
+        if (auto ev = engine_.currentEvent(); ev && engine_.currentBeat() > 1.0e-6)
+        {
             sections_.setPlayhead(ev->sectionIndex, ev->measureIndex, ev->slotIndex, ! ev->rest,
                                   static_cast<float>(engine_.currentEventProgress()));
+        }
         else
-            sections_.setPlayhead(-1, -1, -1, false);
+        {
+            const auto events = buildTimeline(song_);
+            const double length = timelineLengthBeats(events);
+            const double wallBeats = (nowMs - songPlayStartMs_) * song_.bpm() / 60000.0;
+            const double beat = (engine_.isLooping() && length > 0.0)
+                ? std::fmod(wallBeats, length)
+                : wallBeats;
+            if (const auto* e = eventAt(events, beat))
+            {
+                const float progress = e->durationBeats > 0.0
+                    ? static_cast<float>(juce::jlimit(0.0, 1.0, (beat - e->startBeat) / e->durationBeats))
+                    : 0.0f;
+                sections_.setPlayhead(e->sectionIndex, e->measureIndex, e->slotIndex,
+                                      ! e->rest, progress);
+            }
+            else
+            {
+                sections_.setPlayhead(-1, -1, -1, false);
+            }
+        }
     }
     else if (auditionSection_ >= 0)
     {
+        songPlayVisualActive_ = false;
         const double elapsed = juce::Time::getMillisecondCounterHiRes() - auditionStartMs_;
         const float progress = static_cast<float>(
             juce::jlimit(0.0, 1.0, elapsed / juce::jmax(1.0, auditionDurationMs_)));
@@ -253,6 +284,7 @@ void MainComponent::timerCallback()
     }
     else
     {
+        songPlayVisualActive_ = false;
         sections_.setPlayhead(-1, -1, -1, false);
     }
 
