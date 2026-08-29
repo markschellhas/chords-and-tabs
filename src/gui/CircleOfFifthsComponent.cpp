@@ -9,6 +9,10 @@ namespace
 {
 constexpr float kChipStripH = 56.0f;
 constexpr float kFanGapH = 6.0f;
+// Modest zoom of the original semicircle so the clip still shows the
+// active key's six wedges (I / IV / V and their relative minors) plus
+// a sliver of the next chords on each side.
+constexpr float kCircleZoom = 1.5f;
 constexpr float kInnerInnerT = 0.28f;
 constexpr float kInnerOuterT = 0.62f;
 constexpr float kOuterInnerT = 0.66f;
@@ -130,28 +134,16 @@ void CircleOfFifthsComponent::rebuildWedges()
     if (fan.getWidth() < 8.0f || fan.getHeight() < 8.0f)
         return;
 
-    // Size a much larger circle so the same-height clip box is a circular
-    // segment: the 12 o'clock rim sits near the top, the chord at the
-    // bottom spans the panel, and only the active key plus a sliver of
-    // its neighbours stay in frame.
-    const float rimInset = juce::jmax(6.0f, fan.getHeight() * 0.05f);
-    const float rise = juce::jmax(8.0f, fan.getHeight() - rimInset);
-    const float halfW = juce::jmax(8.0f, fan.getWidth() * 0.5f - 10.0f);
-    outerRadius_ = (halfW * halfW + rise * rise) / (2.0f * rise);
+    const float baseRadius = juce::jmin(fan.getWidth() * 0.45f, fan.getHeight() * 0.98f);
+    outerRadius_ = baseRadius * kCircleZoom;
+
+    // Drop the centre so the 12 o'clock rim stays in the same-height box.
+    const float rimInset = juce::jmax(4.0f, fan.getHeight() * 0.03f);
     centre_ = { fan.getCentreX(), fan.getY() + rimInset + outerRadius_ };
 
-    // If the zoom would push the minor ring off the bottom, remap the
-    // original 0.28–1.0 ring layout onto the visible radial band so the
-    // active key still shows major + relative minor.
-    const float visibleInner = juce::jmax(outerRadius_ * kInnerInnerT,
-                                          centre_.y - fan.getBottom() + 6.0f);
-    const float span = juce::jmax(8.0f, outerRadius_ - visibleInner);
-    auto mapR = [visibleInner, span](float t) {
-        return visibleInner + (t - kInnerInnerT) / (1.0f - kInnerInnerT) * span;
-    };
-    innerInner_ = visibleInner;
-    innerOuter_ = mapR(kInnerOuterT);
-    outerInner_ = mapR(kOuterInnerT);
+    innerInner_ = outerRadius_ * kInnerInnerT;
+    innerOuter_ = outerRadius_ * kInnerOuterT;
+    outerInner_ = outerRadius_ * kOuterInnerT;
 
     const float step = juce::MathConstants<float>::twoPi / static_cast<float>(CircleOfFifths::kCount);
 
@@ -234,7 +226,7 @@ void CircleOfFifthsComponent::paint(juce::Graphics& g)
             continue;
 
         const bool selected = w.index == selectedIndex_;
-        const float fade = juce::jlimit(0.4f, 1.0f, 1.0f - std::abs(w.midAngle) * 0.65f);
+        const float fade = juce::jlimit(0.35f, 1.0f, 1.0f - std::abs(w.midAngle) * 0.5f);
 
         juce::Colour fill = wedgeCol;
         if (selected)
@@ -243,22 +235,19 @@ void CircleOfFifthsComponent::paint(juce::Graphics& g)
         g.fillPath(w.path);
 
         g.setColour(bg.withAlpha(0.85f));
-        g.strokePath(w.path, juce::PathStrokeType(1.6f));
+        g.strokePath(w.path, juce::PathStrokeType(1.4f));
 
         const float midR = 0.5f * (w.r0 + w.r1);
         const auto pos = juce::Point<float>(centre_.x + std::sin(w.midAngle) * midR,
                                             centre_.y - std::cos(w.midAngle) * midR);
-        if (! fan.reduced(6.0f, 4.0f).contains(pos))
+        if (! fan.reduced(4.0f, 2.0f).contains(pos))
             continue;
 
         g.setColour((selected ? juce::Colours::white : text).withMultipliedAlpha(fade));
-        const float ringH = juce::jmax(12.0f, w.r1 - w.r0);
-        const float fontH = juce::jlimit(w.inner ? 14.0f : 17.0f, 30.0f, ringH * 0.42f);
-        const float labelW = juce::jmax(48.0f, ringH * 1.15f);
-        const float labelH = juce::jmax(22.0f, fontH + 8.0f);
+        const float fontH = w.inner ? 14.0f : 18.0f;
         g.setFont(juce::Font(juce::FontOptions(fontH, selected ? juce::Font::bold : juce::Font::plain)));
         g.drawText(w.chord.name(),
-                   juce::Rectangle<float>(pos.x - labelW * 0.5f, pos.y - labelH * 0.5f, labelW, labelH),
+                   juce::Rectangle<float>(pos.x - 26.0f, pos.y - 11.0f, 52.0f, 22.0f),
                    juce::Justification::centred);
     }
 
